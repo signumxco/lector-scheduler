@@ -4,304 +4,540 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lector Availability</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* ── Reset & Base ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    /* ── Design tokens ── */
     :root {
-      --navy:    #1a3a5c;
-      --red:     #c0392b;
-      --gold:    #d4a017;
-      --cream:   #faf8f4;
-      --border:  #ddd;
-      --text:    #222;
-      --muted:   #666;
-      --radius:  8px;
-      --shadow:  0 2px 12px rgba(0,0,0,0.08);
+      --navy:        #0f1b2d;
+      --navy-light:  #1a2f4a;
+      --gold:        #d4a843;
+      --gold-dark:   #b8902e;
+      --gold-light:  #f5e9c4;
+      --stone:       #e8e3d9;
+      --stone-dark:  #d4cec4;
+      --warm-white:  #f8f6f1;
+      --text:        #1a1a1a;
+      --text-light:  #4a4a4a;
+      --muted:       #7a7570;
+      --border:      #ddd9d1;
+      --violet:      #6d28d9;
+      --violet-light: #ede9fe;
+      --red:         #c0392b;
+      --red-light:   #fef2f2;
+      --red-border:  #fca5a5;
+      --shadow-sm:   0 1px 3px rgba(15,27,45,0.06), 0 1px 2px rgba(15,27,45,0.04);
+      --shadow:      0 4px 16px rgba(15,27,45,0.08), 0 1px 4px rgba(15,27,45,0.04);
+      --radius:      14px;
     }
 
-    html { font-size: 16px; }
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: Georgia, 'Times New Roman', serif;
-      background: var(--cream);
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--warm-white);
       color: var(--text);
       line-height: 1.6;
       min-height: 100vh;
     }
 
     /* ── Header ── */
-    .header {
+    .site-header {
       background: var(--navy);
       color: white;
-      padding: 20px 20px 18px;
+      padding: 28px 20px 24px;
       text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    .header h1 { font-size: 1.4rem; margin-bottom: 2px; }
-    .header p  { font-size: 0.9rem; opacity: 0.85; }
+
+    /* Subtle decorative ring behind header — sacred geometry */
+    .site-header::before {
+      content: '';
+      position: absolute;
+      top: -40px; left: 50%;
+      transform: translateX(-50%);
+      width: 200px; height: 200px;
+      border-radius: 50%;
+      border: 1px solid rgba(212,168,67,0.12);
+      pointer-events: none;
+    }
+    .site-header::after {
+      content: '';
+      position: absolute;
+      top: -20px; left: 50%;
+      transform: translateX(-50%);
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      border: 1px solid rgba(212,168,67,0.07);
+      pointer-events: none;
+    }
+
+    .header-cross {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .cross-svg {
+      width: 22px; height: 22px;
+      color: var(--gold);
+      opacity: 0.9;
+    }
+
+    .site-header h1 {
+      font-family: 'EB Garamond', Georgia, serif;
+      font-size: 1.65rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: white;
+      line-height: 1.2;
+    }
+
+    .header-month {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 6px;
+      letter-spacing: 0.04em;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
 
     /* ── Container ── */
     .container {
-      max-width: 640px;
+      max-width: 600px;
       margin: 0 auto;
-      padding: 20px 16px 48px;
+      padding: 28px 16px 100px;
     }
 
-    /* ── States ── */
-    #loading, #error, #success { display: none; text-align: center; padding: 48px 24px; }
-    #loading.visible, #error.visible, #success.visible { display: block; }
-    #main { display: none; }
-    #main.visible { display: block; }
+    /* ── State panels ── */
+    .state-panel {
+      display: none;
+      text-align: center;
+      padding: 64px 24px 48px;
+    }
+    .state-panel.active { display: block; }
 
+    #main.active { display: block; }
+    #main        { display: none; }
+
+    /* Loading */
+    .spinner-wrap { margin-bottom: 20px; }
     .spinner {
-      width: 40px; height: 40px;
-      border: 3px solid #ddd;
-      border-top-color: var(--navy);
+      display: inline-block;
+      width: 36px; height: 36px;
+      border: 2.5px solid var(--stone-dark);
+      border-top-color: var(--gold);
       border-radius: 50%;
-      margin: 0 auto 16px;
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .error-icon { font-size: 2.5rem; margin-bottom: 12px; }
-    #error h2   { color: var(--red); margin-bottom: 8px; }
-    #error p    { color: var(--muted); }
-
-    /* ── Greeting ── */
-    .greeting {
-      padding: 20px 0 4px;
-      font-size: 1.1rem;
+    .state-title {
+      font-family: 'EB Garamond', serif;
+      font-size: 1.3rem;
+      color: var(--text);
+      margin-bottom: 8px;
     }
-    .greeting strong { color: var(--navy); }
-    .instruction {
-      color: var(--muted);
-      font-size: 0.9rem;
+    .state-body { color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+
+    /* Error */
+    .error-icon-wrap {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: #fef2f2;
+      border: 1.5px solid #fca5a5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .error-icon-wrap svg { width: 28px; height: 28px; color: var(--red); }
+    #error .state-title { color: var(--red); }
+
+    /* ── Greeting & intro ── */
+    .intro-section { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--stone); }
+
+    .greeting-name {
+      font-family: 'EB Garamond', serif;
+      font-size: 1.5rem;
+      font-weight: 500;
+      color: var(--navy);
+      margin-bottom: 6px;
       margin-top: 4px;
-      margin-bottom: 20px;
-      line-height: 1.5;
+    }
+
+    .instruction {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.55;
     }
 
     /* ── Legend ── */
     .legend {
       display: flex;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 20px;
-      font-size: 0.85rem;
-      color: var(--muted);
+      margin-bottom: 24px;
+      padding: 12px 14px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
     }
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
     }
     .legend-dot {
-      width: 16px; height: 16px;
-      border-radius: 4px;
-      border: 2px solid transparent;
+      width: 14px; height: 14px;
+      border-radius: 50%;
       flex-shrink: 0;
     }
-    .legend-dot.available   { background: #d4edda; border-color: #27ae60; }
-    .legend-dot.unavailable { background: #f8d7da; border-color: var(--red); }
-    .legend-dot.unset       { background: white;   border-color: var(--border); }
-    .legend-dot.triduum     { background: #fff3cd; border-color: var(--gold); }
+    .legend-dot.ld-avail { background: var(--gold); }
+    .legend-dot.ld-unavail { background: var(--red-border); }
+    .legend-dot.ld-unset { background: var(--stone); border: 1.5px solid var(--stone-dark); }
+    .legend-dot.ld-triduum { background: var(--violet-light); border: 1.5px solid var(--violet); }
 
-    /* ── Week grid ── */
-    .month-section { margin-bottom: 28px; }
-    .month-section h2 {
-      font-size: 1.3rem;
-      color: var(--navy);
-      padding-bottom: 8px;
-      border-bottom: 2px solid var(--border);
-      margin-bottom: 12px;
-    }
+    /* ── Week groups ── */
+    .week-group { margin-bottom: 6px; }
 
-    .week-block    { margin-bottom: 8px; }
-    .week-label    { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 4px; }
-
-    /* ── Mass time buttons ── */
-    .mass-btn {
+    .week-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      margin-top: 20px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 10px;
+    }
+    .week-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--stone);
+    }
+
+    /* ── Mass cards ── */
+    .mass-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
       width: 100%;
-      padding: 14px 16px;
-      border: 2px solid var(--border);
+      padding: 15px 16px;
+      border: 1.5px solid var(--border);
       border-radius: var(--radius);
       background: white;
       cursor: pointer;
-      margin-bottom: 8px;
-      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 9px;
+      transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.1s ease;
       text-align: left;
       -webkit-tap-highlight-color: transparent;
-      min-height: 56px;
+      min-height: 72px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
     }
 
-    .mass-btn:active { transform: scale(0.98); }
+    .mass-card:hover { box-shadow: var(--shadow); border-color: var(--stone-dark); }
+    .mass-card:active { transform: scale(0.985); }
 
-    .mass-btn.available {
-      border-color: #27ae60;
-      background: #d4edda;
+    /* Date badge */
+    .mass-date-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 50px;
+      height: 54px;
+      background: var(--stone);
+      border-radius: 10px;
+      flex-shrink: 0;
+      transition: background 0.18s;
     }
-    .mass-btn.unavailable {
-      border-color: var(--red);
-      background: #f8d7da;
+    .badge-day {
+      font-family: 'EB Garamond', serif;
+      font-size: 1.55rem;
+      line-height: 1;
+      color: var(--navy);
+      font-weight: 500;
+      transition: color 0.18s;
     }
-    .mass-btn.triduum-mass {
-      border-style: dashed;
-    }
-    .mass-btn.triduum-mass:not(.available):not(.unavailable) {
-      background: #fff3cd;
-      border-color: var(--gold);
+    .badge-month {
+      font-size: 0.62rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-top: 1px;
+      transition: color 0.18s;
     }
 
-    .mass-info { flex: 1; }
-    .mass-time {
-      font-size: 1rem;
-      font-weight: bold;
+    /* Card content */
+    .mass-card-body { flex: 1; min-width: 0; }
+
+    .mass-dow {
+      font-family: 'EB Garamond', serif;
+      font-size: 1.07rem;
+      font-weight: 500;
       color: var(--text);
+      line-height: 1.2;
+      transition: color 0.18s;
     }
-    .mass-label-text {
+
+    .mass-time-line {
       font-size: 0.82rem;
       color: var(--muted);
-      margin-top: 2px;
-    }
-    .triduum-badge {
-      background: var(--gold);
-      color: white;
-      font-size: 0.7rem;
-      padding: 2px 7px;
-      border-radius: 12px;
-      margin-left: 8px;
-      vertical-align: middle;
-      white-space: nowrap;
+      margin-top: 3px;
+      transition: color 0.18s;
     }
 
+    /* Triduum badge */
+    .holy-week-badge {
+      display: inline-block;
+      font-size: 0.67rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--violet);
+      background: var(--violet-light);
+      padding: 2px 8px;
+      border-radius: 100px;
+      margin-top: 5px;
+    }
+
+    /* State indicator */
     .mass-indicator {
-      width: 28px; height: 28px;
+      width: 30px; height: 30px;
       border-radius: 50%;
-      border: 2px solid var(--border);
+      border: 1.5px solid var(--stone-dark);
+      background: var(--warm-white);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      margin-left: 12px;
-      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: transparent;
+      transition: all 0.18s ease;
+    }
+
+    /* ── Available state ── */
+    .mass-card.available {
+      background: var(--gold);
+      border-color: var(--gold-dark);
+      box-shadow: 0 4px 16px rgba(212,168,67,0.25);
+    }
+    .mass-card.available:hover { box-shadow: 0 6px 24px rgba(212,168,67,0.35); }
+    .mass-card.available .mass-date-badge { background: rgba(255,255,255,0.22); }
+    .mass-card.available .badge-day  { color: white; }
+    .mass-card.available .badge-month { color: rgba(255,255,255,0.75); }
+    .mass-card.available .mass-dow   { color: white; }
+    .mass-card.available .mass-time-line { color: rgba(255,255,255,0.8); }
+    .mass-card.available .holy-week-badge { background: rgba(255,255,255,0.25); color: white; }
+    .mass-card.available .mass-indicator {
       background: white;
-      transition: all 0.15s;
-    }
-    .mass-btn.available   .mass-indicator { border-color: #27ae60; background: #27ae60; color: white; }
-    .mass-btn.unavailable .mass-indicator { border-color: var(--red); background: var(--red); color: white; }
-
-    /* ── Sticky footer bar ── */
-    .footer-bar {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: white;
-      border-top: 1px solid var(--border);
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
-      z-index: 100;
+      border-color: white;
+      color: var(--navy);
     }
 
-    .submit-count {
-      font-size: 0.9rem;
-      color: var(--muted);
+    /* ── Unavailable state ── */
+    .mass-card.unavailable {
+      background: var(--red-light);
+      border-color: var(--red-border);
     }
-    .submit-count strong { color: var(--navy); }
-
-    .btn-submit {
-      background: var(--navy);
+    .mass-card.unavailable .mass-indicator {
+      background: var(--red);
+      border-color: var(--red);
       color: white;
-      border: none;
-      padding: 12px 28px;
-      border-radius: var(--radius);
-      font-size: 1rem;
-      font-family: Georgia, serif;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.15s;
-      min-height: 44px;
     }
-    .btn-submit:hover   { background: #0f2840; }
-    .btn-submit:active  { transform: scale(0.97); }
-    .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
 
-    /* ── Success state ── */
-    .success-icon { font-size: 3rem; margin-bottom: 12px; }
-    #success h2   { color: #27ae60; margin-bottom: 8px; font-size: 1.4rem; }
-    #success p    { color: var(--muted); font-size: 1rem; }
+    /* ── Triduum (Holy Week) ── */
+    .mass-card.triduum-mass:not(.available):not(.unavailable) {
+      border-color: var(--violet);
+      border-left-width: 4px;
+      background: #fdfcff;
+    }
+    .mass-card.triduum-mass:not(.available):not(.unavailable) .mass-date-badge {
+      background: var(--violet-light);
+    }
+    .mass-card.triduum-mass:not(.available):not(.unavailable) .badge-day { color: var(--violet); }
 
     /* ── No masses ── */
     .no-masses {
       text-align: center;
-      padding: 32px;
+      padding: 48px 24px;
       color: var(--muted);
+      font-size: 0.93rem;
     }
 
-    @media (max-width: 400px) {
-      .header h1 { font-size: 1.2rem; }
-      .mass-btn  { padding: 12px 14px; }
+    /* ── Footer submit bar ── */
+    .footer-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(248,246,241,0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid var(--stone);
+      padding: 12px 16px max(16px, env(safe-area-inset-bottom));
+      z-index: 100;
+      box-shadow: 0 -4px 24px rgba(15,27,45,0.08);
+    }
+
+    .footer-inner {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .submit-count {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .submit-count strong { color: var(--navy); }
+
+    .btn-submit {
+      display: block;
+      width: 100%;
+      background: var(--gold);
+      color: var(--navy);
+      border: none;
+      padding: 15px 20px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-family: 'EB Garamond', serif;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, box-shadow 0.18s, transform 0.1s;
+      min-height: 52px;
+      box-shadow: 0 2px 8px rgba(212,168,67,0.3);
+    }
+    .btn-submit:hover   { background: var(--gold-dark); color: white; box-shadow: 0 4px 16px rgba(212,168,67,0.4); }
+    .btn-submit:active  { transform: scale(0.98); }
+    .btn-submit:disabled {
+      background: var(--stone);
+      color: var(--muted);
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    /* ── Responsive ── */
+    @media (min-width: 480px) {
+      .site-header h1 { font-size: 1.85rem; }
+      .mass-card { padding: 17px 20px; }
+    }
+
+    @media (max-width: 360px) {
+      .mass-date-badge { width: 44px; height: 48px; }
+      .badge-day { font-size: 1.35rem; }
+      .mass-card { gap: 11px; padding: 13px 14px; }
     }
   </style>
 </head>
 <body>
 
-<div class="header">
+<!-- Header -->
+<header class="site-header">
+  <div class="header-cross">
+    <svg class="cross-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="10.5" y="2" width="3" height="20" rx="1.5"/>
+      <rect x="3" y="8.5" width="18" height="3" rx="1.5"/>
+    </svg>
+  </div>
   <h1>Lector Availability</h1>
-  <p id="header-subtitle">Loading…</p>
+  <p class="header-month" id="header-subtitle">Loading…</p>
+</header>
+
+<!-- Loading -->
+<div id="loading" class="container state-panel active">
+  <div class="spinner-wrap"><span class="spinner"></span></div>
+  <p class="state-title">Loading your calendar…</p>
+  <p class="state-body">Fetching this month's Mass schedule.</p>
 </div>
 
-<!-- Loading state -->
-<div id="loading" class="container visible">
-  <div class="spinner"></div>
-  <p style="color:var(--muted)">Loading your availability calendar…</p>
+<!-- Error -->
+<div id="error" class="container state-panel">
+  <div class="error-icon-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+  </div>
+  <p class="state-title">Something went wrong</p>
+  <p class="state-body" id="error-message">Your link may be invalid or expired.<br>Please contact the coordinator.</p>
 </div>
 
-<!-- Error state -->
-<div id="error" class="container">
-  <div class="error-icon">⚠</div>
-  <h2>Something went wrong</h2>
-  <p id="error-message">Your link may be invalid or expired. Please contact the coordinator.</p>
-</div>
-
-<!-- Success state -->
-<div id="success" class="container">
-  <div class="success-icon">✓</div>
-  <h2>Availability Saved!</h2>
-  <p id="success-message">Thank you! Your availability has been recorded.</p>
-  <p style="margin-top: 12px; font-size: 0.85rem; color: var(--muted);">You may close this page.</p>
+<!-- Success (inline — replaces main) -->
+<div id="success" class="container state-panel">
+  <div style="width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 8px 24px rgba(212,168,67,0.35);animation:popIn 0.45s cubic-bezier(0.175,0.885,0.32,1.275) both;">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path class="check-path" d="M5 13l4 4L19 7"/>
+    </svg>
+  </div>
+  <p class="state-title" style="font-size:1.55rem;color:var(--navy);margin-bottom:10px;">Availability Saved</p>
+  <p class="state-body" id="success-message" style="font-size:0.95rem;margin-bottom:32px;"></p>
+  <p class="state-body" style="font-size:0.82rem;">You may safely close this page.</p>
 </div>
 
 <!-- Main calendar -->
 <div id="main" class="container">
-  <p class="greeting">Hello, <strong id="lector-name"></strong>!</p>
-  <p class="instruction">
-    Tap each Mass time to toggle your availability.
-    Green = available &nbsp;·&nbsp; Red = unavailable.<br>
-    When you're done, tap <strong>Submit</strong>.
-  </p>
+  <div class="intro-section">
+    <p class="greeting-name" id="lector-name-heading"></p>
+    <p class="instruction">
+      Tap each Mass to mark your availability — tap again to change your answer.
+      <strong style="color:var(--text)">Gold = available · Muted red = unavailable.</strong>
+      Submit when you're done.
+    </p>
+  </div>
 
   <div class="legend">
-    <span class="legend-item"><span class="legend-dot available"></span> Available</span>
-    <span class="legend-item"><span class="legend-dot unavailable"></span> Unavailable</span>
-    <span class="legend-item"><span class="legend-dot unset"></span> Not answered</span>
-    <span class="legend-item"><span class="legend-dot triduum"></span> Triduum</span>
+    <span class="legend-item"><span class="legend-dot ld-avail"></span>Available</span>
+    <span class="legend-item"><span class="legend-dot ld-unavail"></span>Unavailable</span>
+    <span class="legend-item"><span class="legend-dot ld-unset"></span>Not answered</span>
+    <span class="legend-item"><span class="legend-dot ld-triduum"></span>Holy Week</span>
   </div>
 
   <div id="calendar"></div>
 
-  <div style="height: 80px;"></div><!-- spacer for footer bar -->
+  <!-- Spacer so content clears the fixed footer -->
+  <div style="height:90px;" aria-hidden="true"></div>
 </div>
 
-<!-- Fixed submit bar -->
-<div class="footer-bar" id="footer-bar" style="display:none;">
-  <span class="submit-count" id="submit-count">0 of 0 answered</span>
-  <button class="btn-submit" id="btn-submit" onclick="submitAvailability()">Submit</button>
+<!-- Fixed footer submit bar -->
+<div class="footer-bar" id="footer-bar" style="display:none;" aria-live="polite">
+  <div class="footer-inner">
+    <p class="submit-count" id="submit-count"><strong>0</strong> of 0 answered</p>
+    <button class="btn-submit" id="btn-submit" disabled onclick="submitAvailability()">
+      Submit Availability
+    </button>
+  </div>
 </div>
+
+<style>
+  @keyframes popIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .check-path {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: drawCheck 0.4s 0.35s ease forwards;
+  }
+  @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+</style>
 
 <script>
   // ── CONFIG ── Set this to your deployed Apps Script web app URL.
@@ -335,26 +571,21 @@
       const res  = await fetch(url);
       const data = await res.json();
 
-      if (data.error) {
-        showError(data.error);
-        return;
-      }
+      if (data.error) { showError(data.error); return; }
 
       lectorName = data.lectorName || '';
       allMasses  = data.masses || [];
 
-      // Pre-populate existing answers
-      allMasses.forEach(m => {
-        selections[m.massDateTime] = m.available; // true / false / null
-      });
+      allMasses.forEach(m => { selections[m.massDateTime] = m.available; });
 
       renderCalendar(data.monthName, data.year);
-      document.getElementById('lector-name').textContent = lectorName;
+
+      document.getElementById('lector-name-heading').textContent = `Hello, ${lectorName}`;
       document.getElementById('header-subtitle').textContent =
-        `${data.monthName || ''} ${data.year || ''}`;
+        `${data.monthName || ''} ${data.year || ''}`.trim();
 
       show('main');
-      document.getElementById('footer-bar').style.display = 'flex';
+      document.getElementById('footer-bar').style.display = 'block';
       updateCount();
 
     } catch (err) {
@@ -371,60 +602,64 @@
       return;
     }
 
-    // Group by week (ISO week or just by 7-day blocks anchored to first Sunday)
     const groups = groupByWeek(allMasses);
-
-    let html = `<div class="month-section"><h2>${monthName} ${year}</h2>`;
+    let html = '';
 
     groups.forEach(week => {
-      // Determine the week label from the first date in the group
       const firstDate = parseMassDate(week[0].massDateTime);
+      const lastDate  = parseMassDate(week[week.length - 1].massDateTime);
       const weekLabel = firstDate
-        ? `Week of ${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        ? firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+          (lastDate && lastDate.getDate() !== firstDate.getDate()
+            ? ' – ' + lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : '')
         : '';
-      html += `<div class="week-block"><div class="week-label">${weekLabel}</div>`;
+
+      html += `<div class="week-group"><div class="week-label">${weekLabel}</div>`;
 
       week.forEach(mass => {
-        const mdt = mass.massDateTime;
-        const dateObj = parseMassDate(mdt);
-        const dayLabel = dateObj
-          ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-          : '';
-        const timeLabel = dateObj
-          ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-          : '';
-        const triduumBadge = mass.isTriduum
-          ? `<span class="triduum-badge">Triduum</span>` : '';
-        const stateClass = selections[mdt] === true   ? 'available'
-                         : selections[mdt] === false  ? 'unavailable' : '';
+        const mdt      = mass.massDateTime;
+        const dateObj  = parseMassDate(mdt);
+        const dateNum  = dateObj ? dateObj.getDate() : '';
+        const monthStr = dateObj ? dateObj.toLocaleDateString('en-US', { month: 'short' }) : '';
+        const dowStr   = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long' }) : '';
+        const timeStr  = dateObj ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+
+        const stateClass   = selections[mdt] === true ? 'available' : selections[mdt] === false ? 'unavailable' : '';
         const triduumClass = mass.isTriduum ? 'triduum-mass' : '';
-        const indicator = selections[mdt] === true  ? '✓'
-                        : selections[mdt] === false ? '✕' : '';
+        const holyWeekBadge = mass.isTriduum
+          ? `<div><span class="holy-week-badge">Holy Week</span></div>` : '';
+        const indicator = selections[mdt] === true ? '✓' : selections[mdt] === false ? '✕' : '';
+        const key = mdt.replace(/\s/g, '_');
 
         html += `
-          <button class="mass-btn ${stateClass} ${triduumClass}"
-                  id="btn-${mdt.replace(/\s/g,'_')}"
+          <button class="mass-card ${stateClass} ${triduumClass}"
+                  id="btn-${key}"
                   onclick="toggleMass('${mdt}')"
-                  aria-label="Toggle availability for ${dayLabel} ${timeLabel}">
-            <div class="mass-info">
-              <div class="mass-time">${dayLabel}${triduumBadge}</div>
-              <div class="mass-label-text">${timeLabel}${mass.label ? ' · ' + mass.label : ''}</div>
+                  aria-label="Toggle availability: ${dowStr}, ${monthStr} ${dateNum} at ${timeStr}">
+            <div class="mass-date-badge" aria-hidden="true">
+              <span class="badge-day">${dateNum}</span>
+              <span class="badge-month">${monthStr}</span>
             </div>
-            <div class="mass-indicator" id="ind-${mdt.replace(/\s/g,'_')}">${indicator}</div>
+            <div class="mass-card-body">
+              <div class="mass-dow">${dowStr}</div>
+              <div class="mass-time-line">${timeStr}${mass.label ? ' · ' + mass.label : ''}</div>
+              ${holyWeekBadge}
+            </div>
+            <div class="mass-indicator" id="ind-${key}" aria-hidden="true">${indicator}</div>
           </button>`;
       });
 
-      html += `</div>`; // .week-block
+      html += `</div>`;
     });
 
-    html += `</div>`; // .month-section
     cal.innerHTML = html;
   }
 
   // ── Toggle a Mass selection ────────────────────────────────────────────────
   function toggleMass(mdt) {
     const current = selections[mdt];
-    // Cycle: null → available → unavailable → null
+    // Cycle: null/undefined → available → unavailable → null
     if (current === null || current === undefined) {
       selections[mdt] = true;
     } else if (current === true) {
@@ -433,13 +668,13 @@
       selections[mdt] = null;
     }
 
-    const key     = mdt.replace(/\s/g,'_');
-    const btn     = document.getElementById(`btn-${key}`);
-    const ind     = document.getElementById(`ind-${key}`);
-    const mass    = allMasses.find(m => m.massDateTime === mdt);
-    const isTri   = mass && mass.isTriduum;
+    const key  = mdt.replace(/\s/g, '_');
+    const btn  = document.getElementById(`btn-${key}`);
+    const ind  = document.getElementById(`ind-${key}`);
+    const mass = allMasses.find(m => m.massDateTime === mdt);
+    const isTri = mass && mass.isTriduum;
 
-    btn.className = 'mass-btn' + (isTri ? ' triduum-mass' : '');
+    btn.className = `mass-card${isTri ? ' triduum-mass' : ''}`;
     if (selections[mdt] === true)  { btn.classList.add('available');   ind.textContent = '✓'; }
     if (selections[mdt] === false) { btn.classList.add('unavailable'); ind.textContent = '✕'; }
     if (selections[mdt] === null)  { ind.textContent = ''; }
@@ -447,13 +682,14 @@
     updateCount();
   }
 
-  // ── Count answered / update footer ────────────────────────────────────────
+  // ── Progress count ─────────────────────────────────────────────────────────
   function updateCount() {
     const total    = allMasses.length;
-    const answered = allMasses.filter(m => selections[m.massDateTime] !== null && selections[m.massDateTime] !== undefined).length;
+    const answered = allMasses.filter(m =>
+      selections[m.massDateTime] !== null && selections[m.massDateTime] !== undefined
+    ).length;
     document.getElementById('submit-count').innerHTML =
-      `<strong>${answered}</strong> of ${total} answered`;
-
+      `<strong>${answered}</strong> of ${total} Mass times answered`;
     document.getElementById('btn-submit').disabled = answered === 0;
   }
 
@@ -468,9 +704,9 @@
       .map(m => ({ massDateTime: m.massDateTime, available: selections[m.massDateTime] }));
 
     if (sel.length === 0) {
-      alert('Please tap at least one Mass time before submitting.');
+      alert('Please answer at least one Mass time before submitting.');
       btn.disabled = false;
-      btn.textContent = 'Submit';
+      btn.textContent = 'Submit Availability';
       return;
     }
 
@@ -485,12 +721,12 @@
       if (data.error) {
         alert('Error: ' + data.error);
         btn.disabled = false;
-        btn.textContent = 'Submit';
+        btn.textContent = 'Submit Availability';
         return;
       }
 
       document.getElementById('success-message').textContent =
-        data.message || 'Your availability has been saved. Thank you!';
+        data.message || 'Your availability has been saved. Thank you for your ministry!';
       document.getElementById('footer-bar').style.display = 'none';
       show('success');
 
@@ -498,7 +734,7 @@
       alert('Could not submit. Please check your connection and try again.');
       console.error(err);
       btn.disabled = false;
-      btn.textContent = 'Submit';
+      btn.textContent = 'Submit Availability';
     }
   }
 
@@ -506,11 +742,11 @@
   function show(id) {
     ['loading','error','main','success'].forEach(s => {
       const el = document.getElementById(s);
-      el.classList.remove('visible');
-      if (s !== 'main') el.style.display = '';
+      el.classList.remove('active');
+      if (s === 'main') el.style.display = 'none';
     });
     const el = document.getElementById(id);
-    el.classList.add('visible');
+    el.classList.add('active');
     if (id === 'main') el.style.display = 'block';
   }
 
@@ -522,15 +758,11 @@
   function parseMassDate(massDateTime) {
     if (!massDateTime) return null;
     const [datePart, timePart] = massDateTime.split(' ');
-    const [year, month, day]  = datePart.split('-').map(Number);
-    const [hour, minute]      = (timePart || '00:00').split(':').map(Number);
+    const [year, month, day]   = datePart.split('-').map(Number);
+    const [hour, minute]       = (timePart || '00:00').split(':').map(Number);
     return new Date(year, month - 1, day, hour, minute);
   }
 
-  /**
-   * Groups masses into week blocks.
-   * A week starts on Sunday.
-   */
   function groupByWeek(masses) {
     const groups = {};
     masses.forEach(m => {

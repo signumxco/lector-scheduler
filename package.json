@@ -1,0 +1,24 @@
+{
+  "name": "lector-scheduler",
+  "version": "1.0.0",
+  "description": "A low-cost, parish-owned lector scheduling system. Google Apps Script handles all backend logic. A static web app (GitHub Pages) handles the lector-facing UI. No paid services required.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/signumxco/lector-scheduler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/signumxco/lector-scheduler/issues"
+  },
+  "homepage": "https://github.com/signumxco/lector-scheduler#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
