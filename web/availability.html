@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lector Availability</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #1a3a5c;
+      --red:     #c0392b;
+      --gold:    #d4a017;
+      --cream:   #faf8f4;
+      --border:  #ddd;
+      --text:    #222;
+      --muted:   #666;
+      --radius:  8px;
+      --shadow:  0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: var(--cream);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: var(--navy);
+      color: white;
+      padding: 20px 20px 18px;
+      text-align: center;
+    }
+    .header h1 { font-size: 1.4rem; margin-bottom: 2px; }
+    .header p  { font-size: 0.9rem; opacity: 0.85; }
+
+    /* ── Container ── */
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px 16px 48px;
+    }
+
+    /* ── States ── */
+    #loading, #error, #success { display: none; text-align: center; padding: 48px 24px; }
+    #loading.visible, #error.visible, #success.visible { display: block; }
+    #main { display: none; }
+    #main.visible { display: block; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #ddd;
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    #error h2   { color: var(--red); margin-bottom: 8px; }
+    #error p    { color: var(--muted); }
+
+    /* ── Greeting ── */
+    .greeting {
+      padding: 20px 0 4px;
+      font-size: 1.1rem;
+    }
+    .greeting strong { color: var(--navy); }
+    .instruction {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      border: 2px solid transparent;
+      flex-shrink: 0;
+    }
+    .legend-dot.available   { background: #d4edda; border-color: #27ae60; }
+    .legend-dot.unavailable { background: #f8d7da; border-color: var(--red); }
+    .legend-dot.unset       { background: white;   border-color: var(--border); }
+    .legend-dot.triduum     { background: #fff3cd; border-color: var(--gold); }
+
+    /* ── Week grid ── */
+    .month-section { margin-bottom: 28px; }
+    .month-section h2 {
+      font-size: 1.3rem;
+      color: var(--navy);
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    .week-block    { margin-bottom: 8px; }
+    .week-label    { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 4px; }
+
+    /* ── Mass time buttons ── */
+    .mass-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      background: white;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: border-color 0.15s, background 0.15s;
+      text-align: left;
+      -webkit-tap-highlight-color: transparent;
+      min-height: 56px;
+    }
+
+    .mass-btn:active { transform: scale(0.98); }
+
+    .mass-btn.available {
+      border-color: #27ae60;
+      background: #d4edda;
+    }
+    .mass-btn.unavailable {
+      border-color: var(--red);
+      background: #f8d7da;
+    }
+    .mass-btn.triduum-mass {
+      border-style: dashed;
+    }
+    .mass-btn.triduum-mass:not(.available):not(.unavailable) {
+      background: #fff3cd;
+      border-color: var(--gold);
+    }
+
+    .mass-info { flex: 1; }
+    .mass-time {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--text);
+    }
+    .mass-label-text {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .triduum-badge {
+      background: var(--gold);
+      color: white;
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 12px;
+      margin-left: 8px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .mass-indicator {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-left: 12px;
+      font-size: 1rem;
+      background: white;
+      transition: all 0.15s;
+    }
+    .mass-btn.available   .mass-indicator { border-color: #27ae60; background: #27ae60; color: white; }
+    .mass-btn.unavailable .mass-indicator { border-color: var(--red); background: var(--red); color: white; }
+
+    /* ── Sticky footer bar ── */
+    .footer-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+      z-index: 100;
+    }
+
+    .submit-count {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .submit-count strong { color: var(--navy); }
+
+    .btn-submit {
+      background: var(--navy);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      font-family: Georgia, serif;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.15s;
+      min-height: 44px;
+    }
+    .btn-submit:hover   { background: #0f2840; }
+    .btn-submit:active  { transform: scale(0.97); }
+    .btn-submit:disabled { background: #aaa; cursor: not-allowed; }
+
+    /* ── Success state ── */
+    .success-icon { font-size: 3rem; margin-bottom: 12px; }
+    #success h2   { color: #27ae60; margin-bottom: 8px; font-size: 1.4rem; }
+    #success p    { color: var(--muted); font-size: 1rem; }
+
+    /* ── No masses ── */
+    .no-masses {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 400px) {
+      .header h1 { font-size: 1.2rem; }
+      .mass-btn  { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Lector Availability</h1>
+  <p id="header-subtitle">Loading…</p>
+</div>
+
+<!-- Loading state -->
+<div id="loading" class="container visible">
+  <div class="spinner"></div>
+  <p style="color:var(--muted)">Loading your availability calendar…</p>
+</div>
+
+<!-- Error state -->
+<div id="error" class="container">
+  <div class="error-icon">⚠</div>
+  <h2>Something went wrong</h2>
+  <p id="error-message">Your link may be invalid or expired. Please contact the coordinator.</p>
+</div>
+
+<!-- Success state -->
+<div id="success" class="container">
+  <div class="success-icon">✓</div>
+  <h2>Availability Saved!</h2>
+  <p id="success-message">Thank you! Your availability has been recorded.</p>
+  <p style="margin-top: 12px; font-size: 0.85rem; color: var(--muted);">You may close this page.</p>
+</div>
+
+<!-- Main calendar -->
+<div id="main" class="container">
+  <p class="greeting">Hello, <strong id="lector-name"></strong>!</p>
+  <p class="instruction">
+    Tap each Mass time to toggle your availability.
+    Green = available &nbsp;·&nbsp; Red = unavailable.<br>
+    When you're done, tap <strong>Submit</strong>.
+  </p>
+
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot available"></span> Available</span>
+    <span class="legend-item"><span class="legend-dot unavailable"></span> Unavailable</span>
+    <span class="legend-item"><span class="legend-dot unset"></span> Not answered</span>
+    <span class="legend-item"><span class="legend-dot triduum"></span> Triduum</span>
+  </div>
+
+  <div id="calendar"></div>
+
+  <div style="height: 80px;"></div><!-- spacer for footer bar -->
+</div>
+
+<!-- Fixed submit bar -->
+<div class="footer-bar" id="footer-bar" style="display:none;">
+  <span class="submit-count" id="submit-count">0 of 0 answered</span>
+  <button class="btn-submit" id="btn-submit" onclick="submitAvailability()">Submit</button>
+</div>
+
+<script>
+  // ── CONFIG ── Set this to your deployed Apps Script web app URL.
+  const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  let lectorName = '';
+  let allMasses  = [];
+  // selections[massDateTime] = true (available) | false (unavailable) | null (not set)
+  const selections = {};
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  const token = new URLSearchParams(location.search).get('token');
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!token) {
+      showError('No token found in the URL. Please use the link from your email.');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL === 'YOUR_APPS_SCRIPT_URL_HERE') {
+      showError('This system is not yet configured. Please contact the coordinator.');
+      return;
+    }
+    loadAvailabilityData();
+  });
+
+  // ── Fetch data from Apps Script ────────────────────────────────────────────
+  async function loadAvailabilityData() {
+    try {
+      const url = `${APPS_SCRIPT_URL}?action=getAvailabilityData&token=${encodeURIComponent(token)}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (data.error) {
+        showError(data.error);
+        return;
+      }
+
+      lectorName = data.lectorName || '';
+      allMasses  = data.masses || [];
+
+      // Pre-populate existing answers
+      allMasses.forEach(m => {
+        selections[m.massDateTime] = m.available; // true / false / null
+      });
+
+      renderCalendar(data.monthName, data.year);
+      document.getElementById('lector-name').textContent = lectorName;
+      document.getElementById('header-subtitle').textContent =
+        `${data.monthName || ''} ${data.year || ''}`;
+
+      show('main');
+      document.getElementById('footer-bar').style.display = 'flex';
+      updateCount();
+
+    } catch (err) {
+      showError('Could not connect to the scheduling system. Please try again.');
+      console.error(err);
+    }
+  }
+
+  // ── Render calendar ────────────────────────────────────────────────────────
+  function renderCalendar(monthName, year) {
+    const cal = document.getElementById('calendar');
+    if (allMasses.length === 0) {
+      cal.innerHTML = '<div class="no-masses"><p>No Masses found for this month.</p></div>';
+      return;
+    }
+
+    // Group by week (ISO week or just by 7-day blocks anchored to first Sunday)
+    const groups = groupByWeek(allMasses);
+
+    let html = `<div class="month-section"><h2>${monthName} ${year}</h2>`;
+
+    groups.forEach(week => {
+      // Determine the week label from the first date in the group
+      const firstDate = parseMassDate(week[0].massDateTime);
+      const weekLabel = firstDate
+        ? `Week of ${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+        : '';
+      html += `<div class="week-block"><div class="week-label">${weekLabel}</div>`;
+
+      week.forEach(mass => {
+        const mdt = mass.massDateTime;
+        const dateObj = parseMassDate(mdt);
+        const dayLabel = dateObj
+          ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+          : '';
+        const timeLabel = dateObj
+          ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+          : '';
+        const triduumBadge = mass.isTriduum
+          ? `<span class="triduum-badge">Triduum</span>` : '';
+        const stateClass = selections[mdt] === true   ? 'available'
+                         : selections[mdt] === false  ? 'unavailable' : '';
+        const triduumClass = mass.isTriduum ? 'triduum-mass' : '';
+        const indicator = selections[mdt] === true  ? '✓'
+                        : selections[mdt] === false ? '✕' : '';
+
+        html += `
+          <button class="mass-btn ${stateClass} ${triduumClass}"
+                  id="btn-${mdt.replace(/\s/g,'_')}"
+                  onclick="toggleMass('${mdt}')"
+                  aria-label="Toggle availability for ${dayLabel} ${timeLabel}">
+            <div class="mass-info">
+              <div class="mass-time">${dayLabel}${triduumBadge}</div>
+              <div class="mass-label-text">${timeLabel}${mass.label ? ' · ' + mass.label : ''}</div>
+            </div>
+            <div class="mass-indicator" id="ind-${mdt.replace(/\s/g,'_')}">${indicator}</div>
+          </button>`;
+      });
+
+      html += `</div>`; // .week-block
+    });
+
+    html += `</div>`; // .month-section
+    cal.innerHTML = html;
+  }
+
+  // ── Toggle a Mass selection ────────────────────────────────────────────────
+  function toggleMass(mdt) {
+    const current = selections[mdt];
+    // Cycle: null → available → unavailable → null
+    if (current === null || current === undefined) {
+      selections[mdt] = true;
+    } else if (current === true) {
+      selections[mdt] = false;
+    } else {
+      selections[mdt] = null;
+    }
+
+    const key     = mdt.replace(/\s/g,'_');
+    const btn     = document.getElementById(`btn-${key}`);
+    const ind     = document.getElementById(`ind-${key}`);
+    const mass    = allMasses.find(m => m.massDateTime === mdt);
+    const isTri   = mass && mass.isTriduum;
+
+    btn.className = 'mass-btn' + (isTri ? ' triduum-mass' : '');
+    if (selections[mdt] === true)  { btn.classList.add('available');   ind.textContent = '✓'; }
+    if (selections[mdt] === false) { btn.classList.add('unavailable'); ind.textContent = '✕'; }
+    if (selections[mdt] === null)  { ind.textContent = ''; }
+
+    updateCount();
+  }
+
+  // ── Count answered / update footer ────────────────────────────────────────
+  function updateCount() {
+    const total    = allMasses.length;
+    const answered = allMasses.filter(m => selections[m.massDateTime] !== null && selections[m.massDateTime] !== undefined).length;
+    document.getElementById('submit-count').innerHTML =
+      `<strong>${answered}</strong> of ${total} answered`;
+
+    document.getElementById('btn-submit').disabled = answered === 0;
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function submitAvailability() {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const sel = allMasses
+      .filter(m => selections[m.massDateTime] !== null && selections[m.massDateTime] !== undefined)
+      .map(m => ({ massDateTime: m.massDateTime, available: selections[m.massDateTime] }));
+
+    if (sel.length === 0) {
+      alert('Please tap at least one Mass time before submitting.');
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+      return;
+    }
+
+    try {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'submitAvailability', token, selections: sel }),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        alert('Error: ' + data.error);
+        btn.disabled = false;
+        btn.textContent = 'Submit';
+        return;
+      }
+
+      document.getElementById('success-message').textContent =
+        data.message || 'Your availability has been saved. Thank you!';
+      document.getElementById('footer-bar').style.display = 'none';
+      show('success');
+
+    } catch (err) {
+      alert('Could not submit. Please check your connection and try again.');
+      console.error(err);
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function show(id) {
+    ['loading','error','main','success'].forEach(s => {
+      const el = document.getElementById(s);
+      el.classList.remove('visible');
+      if (s !== 'main') el.style.display = '';
+    });
+    const el = document.getElementById(id);
+    el.classList.add('visible');
+    if (id === 'main') el.style.display = 'block';
+  }
+
+  function showError(msg) {
+    document.getElementById('error-message').textContent = msg;
+    show('error');
+  }
+
+  function parseMassDate(massDateTime) {
+    if (!massDateTime) return null;
+    const [datePart, timePart] = massDateTime.split(' ');
+    const [year, month, day]  = datePart.split('-').map(Number);
+    const [hour, minute]      = (timePart || '00:00').split(':').map(Number);
+    return new Date(year, month - 1, day, hour, minute);
+  }
+
+  /**
+   * Groups masses into week blocks.
+   * A week starts on Sunday.
+   */
+  function groupByWeek(masses) {
+    const groups = {};
+    masses.forEach(m => {
+      const d = parseMassDate(m.massDateTime);
+      if (!d) return;
+      const sunday = new Date(d);
+      sunday.setDate(d.getDate() - d.getDay());
+      const key = sunday.toISOString().slice(0, 10);
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(m);
+    });
+    return Object.values(groups);
+  }
+</script>
+
+</body>
+</html>

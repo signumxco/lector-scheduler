@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmed</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:  #1a3a5c;
+      --green: #27ae60;
+      --cream: #faf8f4;
+      --text:  #222;
+      --muted: #666;
+    }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: var(--cream);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: var(--navy);
+      color: white;
+      padding: 20px 20px 18px;
+      text-align: center;
+    }
+    .header h1 { font-size: 1.4rem; }
+
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      text-align: center;
+      flex: 1;
+    }
+
+    .check-circle {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+    .check-circle svg {
+      width: 40px; height: 40px;
+      stroke: white;
+      stroke-width: 3;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .check-path {
+      stroke-dasharray: 50;
+      stroke-dashoffset: 50;
+      animation: drawCheck 0.4s 0.3s ease forwards;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.5); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    @keyframes drawCheck {
+      to { stroke-dashoffset: 0; }
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      color: var(--green);
+      margin-bottom: 12px;
+    }
+
+    .message {
+      font-size: 1rem;
+      color: var(--muted);
+      margin-bottom: 32px;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .detail-box {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 32px;
+      text-align: left;
+    }
+    .detail-box p {
+      font-size: 0.93rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .detail-box strong { color: var(--text); }
+
+    .close-note {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* Shown only when arriving from a swap confirmation */
+    .swap-info {
+      background: #eaf6ee;
+      border: 1px solid #a8d5b5;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      font-size: 0.93rem;
+      color: #1a5c2a;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="header-title">Confirmed</h1>
+</div>
+
+<div class="container">
+  <div class="check-circle">
+    <svg viewBox="0 0 24 24">
+      <path class="check-path" d="M5 13l4 4L19 7"/>
+    </svg>
+  </div>
+
+  <h2 id="main-heading">Thank You!</h2>
+  <p class="message" id="main-message">Your submission has been recorded.</p>
+
+  <div id="detail-box" class="detail-box" style="display:none;">
+    <p id="detail-line-1"></p>
+    <p id="detail-line-2"></p>
+  </div>
+
+  <div id="swap-info" class="swap-info" style="display:none;">
+    <strong>What happens next?</strong><br>
+    All active lectors have been notified by email. The first person to reply to the coordinator will be confirmed as your substitute. You will receive a confirmation email once a substitute has been arranged.
+  </div>
+
+  <p class="close-note">You may safely close this page.</p>
+</div>
+
+<script>
+  /**
+   * Confirmation page — reads state from URL query parameters.
+   *
+   * Supported params:
+   *   type=availability  — shown after submitting availability
+   *   type=swap          — shown after requesting a swap
+   *   name=John Smith    — lector's name for personalization
+   *   month=May 2025     — relevant month (availability)
+   *   mass=...           — mass date/time string (swap)
+   */
+  const params = new URLSearchParams(location.search);
+  const type   = params.get('type') || 'availability';
+  const name   = params.get('name') || '';
+  const month  = params.get('month') || '';
+  const mass   = params.get('mass') || '';
+
+  function init() {
+    const greeting = name ? `Thank you, ${name}!` : 'Thank you!';
+
+    if (type === 'swap') {
+      document.getElementById('header-title').textContent  = 'Swap Request Sent';
+      document.getElementById('main-heading').textContent  = greeting;
+      document.getElementById('main-message').textContent  =
+        'Your swap request has been sent to all lectors.';
+
+      if (mass) {
+        const detail = document.getElementById('detail-box');
+        detail.style.display = 'block';
+        document.getElementById('detail-line-1').innerHTML =
+          `<strong>Mass needing coverage:</strong> ${formatMass(mass)}`;
+        document.getElementById('detail-line-2').innerHTML =
+          `The coordinator has also been notified.`;
+      }
+
+      document.getElementById('swap-info').style.display = 'block';
+
+    } else {
+      // Default: availability submission
+      document.getElementById('header-title').textContent = 'Availability Saved';
+      document.getElementById('main-heading').textContent = greeting;
+      document.getElementById('main-message').textContent =
+        month
+          ? `Your availability for ${month} has been recorded. The coordinator will be in touch once the schedule is set.`
+          : 'Your availability has been recorded successfully.';
+    }
+  }
+
+  function formatMass(mdt) {
+    try {
+      const [datePart, timePart] = mdt.split(' ');
+      const [y, mo, d] = datePart.split('-').map(Number);
+      const [h, mi]    = (timePart || '00:00').split(':').map(Number);
+      const date = new Date(y, mo - 1, d, h, mi);
+      const day  = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return `${day} at ${time}`;
+    } catch (_) {
+      return mdt;
+    }
+  }
+
+  init();
+</script>
+
+</body>
+</html>
