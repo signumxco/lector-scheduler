@@ -31,9 +31,6 @@ function getConfig() {
     anthropicKey:    props.getProperty('ANTHROPIC_API_KEY') || '',   // optional
     parishName:      props.getProperty('PARISH_NAME') || 'Our Parish',
     scriptUrl:       props.getProperty('SCRIPT_URL') || '',          // deployed web app URL
-    // Comma-separated names of deacons who lead the Prayers of the Faithful when present.
-    // Leave blank to omit that note from lector emails entirely.
-    deaconNames:     props.getProperty('DEACON_NAMES') || '',
   };
 }
 
@@ -904,18 +901,13 @@ function getOrCreateSwapToken(ss, email, referenceMdt) {
  * Includes role descriptions, all assignments, scraped reading text, and swap link.
  */
 function buildLectorNotificationEmail(name, monthYear, assignments, swapUrl, parishName) {
-  // Build the optional deacon note from Script Properties (DEACON_NAMES).
-  // If the property is blank the note is omitted entirely.
-  const config       = getConfig();
-  const deaconNote   = config.deaconNames
-    ? `<br><em style="font-size: 13px;">(Prayers of the Faithful are led by ${config.deaconNames} when present — confirm with the celebrant)</em>`
-    : '';
+  const config = getConfig();
 
   const roleDescriptions = `
     <div style="background: #f8f4ee; border-left: 4px solid #1a3a5c; padding: 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
       <p style="margin: 0 0 8px; font-weight: bold;">Role Reminders</p>
       <p style="margin: 0 0 6px;"><strong>Lector 1:</strong> First Reading + Announcements before Mass</p>
-      <p style="margin: 0;"><strong>Lector 2:</strong> Second Reading + Prayers of the Faithful${deaconNote}</p>
+      <p style="margin: 0;"><strong>Lector 2:</strong> Second Reading — confirm with the celebrant before Mass regarding Prayers of the Faithful</p>
     </div>`;
 
   const massBlocks = assignments.map(a => {
