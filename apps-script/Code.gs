@@ -59,6 +59,7 @@ function onOpen() {
     .addItem('Generate Schedule Now (Flow 3)', 'generateSchedule')
     .addSeparator()
     .addItem('Publish Approved Schedule (Flow 5)', 'publishSchedule')
+    .addItem('Print Sign-In Sheet', 'generatePrintableSchedule')
     .addSeparator()
     .addItem('Send Reminder Emails', 'sendReminderEmails')
     .addSeparator()
@@ -618,6 +619,7 @@ function generateSchedule() {
       a.readingsUrl || '',
       a.prepUrl || '',
       a.status,
+      '',  // DeaconMass — coordinator fills in TRUE for Masses where a deacon will be present
     ]);
   });
 
@@ -978,6 +980,211 @@ function buildLectorNotificationEmail(name, monthYear, assignments, swapUrl, par
   </div>
 </body>
 </html>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRINTABLE SIGN-IN SHEET
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generates a print-ready sign-in sheet from APPROVED Schedule rows and opens
+ * it in a dialog. The coordinator clicks the Print button to send it to their
+ * printer. The printed sheet is placed in the church so lectors can sign in.
+ *
+ * Format mirrors the parish's existing sheet:
+ *   Date & Time | Lector #1 | Sign In | Lector #2 | Sign In
+ *
+ * Rows where DeaconMass = TRUE are highlighted yellow, indicating that Lector 2
+ * should confirm with the celebrant about Prayers of the Faithful.
+ *
+ * Special-label rows (e.g. "Palm Sunday") appear as a full-width header row
+ * when a Mass has a MassType value and no assigned lectors.
+ *
+ * Coordinator workflow:
+ *   1. Generate and approve the schedule (Flows 3 & 4).
+ *   2. In the Schedule tab, mark DeaconMass = TRUE for any Mass where a deacon
+ *      is expected to be present.
+ *   3. Click Lector System → Print Sign-In Sheet.
+ *   4. In the dialog, click Print.
+ */
+function generatePrintableSchedule() {
+  const config        = getConfig();
+  const ss            = getSpreadsheet();
+  const scheduleSheet = ss.getSheetByName('Schedule');
+
+  const schedData = scheduleSheet.getDataRange().getValues();
+  const sHeaders  = schedData[0];
+  const sMdtCol      = sHeaders.indexOf('MassDateTime');
+  const sLabelCol    = sHeaders.indexOf('Label');
+  const sL1Col       = sHeaders.indexOf('Lector1');
+  const sL2Col       = sHeaders.indexOf('Lector2');
+  const sStatusCol   = sHeaders.indexOf('Status');
+  const sDeaconCol   = sHeaders.indexOf('DeaconMass');
+
+  const approvedRows = schedData.slice(1).filter(row => row[sStatusCol] === 'APPROVED');
+
+  if (approvedRows.length === 0) {
+    SpreadsheetApp.getUi().alert('No approved rows found in the Schedule tab. Approve the schedule first.');
+    return;
+  }
+
+  // ── Determine month/year from the first row ────────────────────────────────
+  const firstDate = parseMassDate(approvedRows[0][sMdtCol]);
+  const monthYear = firstDate
+    ? firstDate.toLocaleString('en-US', { month: 'long', year: 'numeric' }).toUpperCase()
+    : 'SCHEDULE';
+
+  // ── Build table rows ───────────────────────────────────────────────────────
+  let tableRows = '';
+
+  approvedRows.forEach(row => {
+    const mdt        = row[sMdtCol];
+    const label      = row[sLabelCol] || '';
+    const lector1    = row[sL1Col] || '';
+    const lector2    = row[sL2Col] || '';
+    const isDeacon   = sDeaconCol >= 0 &&
+                       (row[sDeaconCol] === true || row[sDeaconCol] === 'TRUE' || row[sDeaconCol] === 'Yes');
+
+    const dateObj    = parseMassDate(mdt);
+    const dateDisplay = dateObj
+      ? dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) +
+        ' ' + dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      : mdt;
+
+    const rowStyle   = isDeacon ? ' class="deacon-row"' : '';
+
+    tableRows += `
+      <tr${rowStyle}>
+        <td class="col-date">${escapeHtml(dateDisplay)}</td>
+        <td class="col-lector">${escapeHtml(lector1)}</td>
+        <td class="col-signin"></td>
+        <td class="col-lector">${escapeHtml(lector2)}</td>
+        <td class="col-signin"></td>
+      </tr>`;
+  });
+
+  // ── Build the full HTML ────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11pt;
+    background: white;
+  }
+
+  .sheet-wrap { padding: 16px; }
+
+  /* ── Title bar ── */
+  .title-bar {
+    background: #92d050;   /* Excel-green to match the existing parish sheet */
+    color: black;
+    font-size: 14pt;
+    font-weight: bold;
+    padding: 8px 12px;
+    border: 1.5px solid #333;
+    margin-bottom: 0;
+  }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border: 1px solid #333;
+    padding: 5px 8px;
+    vertical-align: middle;
+  }
+
+  thead th {
+    background: #d9d9d9;
+    font-weight: bold;
+    text-align: center;
+    font-size: 10pt;
+    text-transform: uppercase;
+  }
+
+  /* Column widths */
+  .col-date   { width: 22%; text-align: right; font-weight: bold; white-space: nowrap; }
+  .col-lector { width: 28%; }
+  .col-signin { width: 11%; }   /* blank — for physical signature */
+
+  /* Deacon Mass rows — yellow highlight */
+  tr.deacon-row td { background: #ffff00; }
+
+  /* ── Footer notes ── */
+  .notes {
+    margin-top: 12px;
+    font-size: 10pt;
+    color: #c00;
+    font-weight: bold;
+    line-height: 1.7;
+  }
+
+  /* ── Print button — hidden when printing ── */
+  .print-btn {
+    display: block;
+    margin: 0 auto 18px;
+    padding: 10px 32px;
+    font-size: 13pt;
+    background: #1a3a5c;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  @media print {
+    .print-btn { display: none !important; }
+    body { padding: 0; }
+    .sheet-wrap { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨 Print Sign-In Sheet</button>
+
+<div class="sheet-wrap">
+  <div class="title-bar">LECTOR SCHEDULE ${monthYear}</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="col-date">Date and Time</th>
+        <th class="col-lector">Lector #1</th>
+        <th class="col-signin">Sign In</th>
+        <th class="col-lector">Lector #2</th>
+        <th class="col-signin">Sign In</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+
+  <div class="notes">
+    Lector 1 will do the announcements, prior to the final blessing.<br>
+    Lector 2 will do Prayers of the Faithful unless a deacon is present — confirm with the celebrant.<br>
+    Deacon Masses highlighted in yellow. Subject to change.
+  </div>
+</div>
+
+</body>
+</html>`;
+
+  // ── Show in a full-page dialog the coordinator can print from ─────────────
+  const output = HtmlService.createHtmlOutput(html)
+    .setTitle('Sign-In Sheet — ' + monthYear)
+    .setWidth(900)
+    .setHeight(700);
+
+  SpreadsheetApp.getUi().showModalDialog(output, 'Sign-In Sheet — ' + monthYear);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1499,7 +1706,7 @@ function initializeSheetTabs() {
     { name: 'Lectors',      headers: ['Name', 'Email', 'Active'] },
     { name: 'MassTimes',    headers: ['DayOfWeek', 'Time', 'Label', 'MassType', 'LectorsNeeded'] },
     { name: 'Availability', headers: ['Token', 'LectorName', 'MassDateTime', 'Available', 'SubmittedAt'] },
-    { name: 'Schedule',     headers: ['MassDateTime', 'Label', 'Lector1', 'Lector2', 'ReadingsURL', 'PrepURL', 'Status'] },
+    { name: 'Schedule',     headers: ['MassDateTime', 'Label', 'Lector1', 'Lector2', 'ReadingsURL', 'PrepURL', 'Status', 'DeaconMass'] },
     { name: 'Tokens',       headers: ['Token', 'LectorEmail', 'Month', 'Year', 'Used'] },
   ];
 

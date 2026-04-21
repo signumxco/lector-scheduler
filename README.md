@@ -170,12 +170,26 @@ Nothing — emails go out automatically. You'll see them in your Sent folder.
 ### Around the 23rd
 1. You'll receive an email: **"Your schedule is ready for review"** with a link to the Sheet.
 2. Open the **Schedule** tab.
-3. Review each row. The system auto-assigns two lectors per Mass.
-4. Any row marked **NEEDS ATTENTION** means fewer than 2 lectors were available — assign manually.
+3. Review each row. The system auto-assigns lectors per Mass.
+4. Any row marked **NEEDS ATTENTION** means fewer lectors than needed were available — assign manually.
 5. Make any changes you like (swap lectors, adjust assignments).
-6. When you're satisfied with a row, change its **Status** column from `PENDING APPROVAL` to `APPROVED`.
-7. When all rows are approved, click **Lector System → Publish Approved Schedule**.
-8. Lector notification emails go out immediately.
+6. In the **DeaconMass** column, enter `TRUE` for any Mass where a deacon is expected to be present. These rows will be highlighted yellow on the printed sign-in sheet, reminding Lector 2 to confirm about Prayers of the Faithful.
+7. When you're satisfied with a row, change its **Status** column from `PENDING APPROVAL` to `APPROVED`.
+8. When all rows are approved:
+   - Click **Lector System → Publish Approved Schedule** to send lector notification emails.
+   - Click **Lector System → Print Sign-In Sheet** to open the printable sign-in sheet. Click the Print button in the dialog to print it for the church.
+
+### Print Sign-In Sheet
+The sign-in sheet matches the format placed in the church each month:
+
+| Date and Time | Lector #1 | Sign In | Lector #2 | Sign In |
+|---|---|---|---|---|
+| March 7th 4:00 PM | Jane Smith | _______ | Bob Johnson | _______ |
+
+- Yellow rows = Masses where **DeaconMass = TRUE** (a deacon is expected)
+- The Sign In columns are blank for lectors to sign on the day of Mass
+- Footer notes explain the Lector 1 and Lector 2 roles
+- Print directly from the dialog that opens in your browser
 
 ### If a Lector Requests a Swap
 - You'll receive a notification email.
