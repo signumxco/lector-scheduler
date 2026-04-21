@@ -455,7 +455,7 @@
 
 <script>
   // ── CONFIG ── Set this to your deployed Apps Script web app URL.
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_-SFpAltN8MdRtHQATrMFWmEWQrxg7pHCRPYrQIiARJWI44BVw0cq7EE8czBcoFxo/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw06KYcutPrIy3gKX47kBpZdBWe3GR9sUB3rAuc5BvdWAO-Z_iMoXM9uwXXByqbH48/exec';
 
   const params = new URLSearchParams(location.search);
   const token  = params.get('token');
@@ -477,13 +477,23 @@
     loadSwapData();
   });
 
+  function jsonp(url) {
+    return new Promise((resolve, reject) => {
+      const cb = '__cb' + Date.now() + Math.random().toString(36).slice(2);
+      const script = document.createElement('script');
+      window[cb] = data => { delete window[cb]; script.remove(); resolve(data); };
+      script.onerror = () => { delete window[cb]; script.remove(); reject(new Error('Network error')); };
+      script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+      document.head.appendChild(script);
+    });
+  }
+
   async function loadSwapData() {
     try {
       let url = `${APPS_SCRIPT_URL}?action=getSwapData&token=${encodeURIComponent(token)}`;
       if (preselectedMass) url += `&mass=${encodeURIComponent(preselectedMass)}`;
 
-      const res  = await fetch(url);
-      const data = await res.json();
+      const data = await jsonp(url);
 
       if (data.error) { showError(data.error); return; }
 
@@ -575,12 +585,8 @@
     btn.textContent = 'Sending…';
 
     try {
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'requestSwap', token, massDateTime: selectedMass }),
-      });
-      const data = await res.json();
+      const url = `${APPS_SCRIPT_URL}?action=requestSwap&token=${encodeURIComponent(token)}&massDateTime=${encodeURIComponent(selectedMass)}`;
+      const data = await jsonp(url);
 
       if (data.error) {
         alert('Error: ' + data.error);
