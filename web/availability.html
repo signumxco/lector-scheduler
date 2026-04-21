@@ -203,7 +203,7 @@
     .legend-dot.ld-avail { background: var(--gold); }
     .legend-dot.ld-unavail { background: var(--red-border); }
     .legend-dot.ld-unset { background: var(--stone); border: 1.5px solid var(--stone-dark); }
-    .legend-dot.ld-triduum { background: var(--violet-light); border: 1.5px solid var(--violet); }
+    .legend-dot.ld-special { background: var(--violet-light); border: 1.5px solid var(--violet); }
 
     /* ── Week groups ── */
     .week-group { margin-bottom: 6px; }
@@ -300,7 +300,7 @@
       transition: color 0.18s;
     }
 
-    /* Triduum badge */
+    /* Special Mass type badge — displays the MassType value verbatim */
     .holy-week-badge {
       display: inline-block;
       font-size: 0.67rem;
@@ -361,16 +361,16 @@
       color: white;
     }
 
-    /* ── Triduum (Holy Week) ── */
-    .mass-card.triduum-mass:not(.available):not(.unavailable) {
+    /* ── Special Mass (any non-blank MassType value) ── */
+    .mass-card.special-mass:not(.available):not(.unavailable) {
       border-color: var(--violet);
       border-left-width: 4px;
       background: #fdfcff;
     }
-    .mass-card.triduum-mass:not(.available):not(.unavailable) .mass-date-badge {
+    .mass-card.special-mass:not(.available):not(.unavailable) .mass-date-badge {
       background: var(--violet-light);
     }
-    .mass-card.triduum-mass:not(.available):not(.unavailable) .badge-day { color: var(--violet); }
+    .mass-card.special-mass:not(.available):not(.unavailable) .badge-day { color: var(--violet); }
 
     /* ── No masses ── */
     .no-masses {
@@ -507,7 +507,7 @@
     <span class="legend-item"><span class="legend-dot ld-avail"></span>Available</span>
     <span class="legend-item"><span class="legend-dot ld-unavail"></span>Unavailable</span>
     <span class="legend-item"><span class="legend-dot ld-unset"></span>Not answered</span>
-    <span class="legend-item"><span class="legend-dot ld-triduum"></span>Holy Week</span>
+    <span class="legend-item"><span class="legend-dot ld-special"></span>Special Mass</span>
   </div>
 
   <div id="calendar"></div>
@@ -625,15 +625,18 @@
         const dowStr   = dateObj ? dateObj.toLocaleDateString('en-US', { weekday: 'long' }) : '';
         const timeStr  = dateObj ? dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
 
-        const stateClass   = selections[mdt] === true ? 'available' : selections[mdt] === false ? 'unavailable' : '';
-        const triduumClass = mass.isTriduum ? 'triduum-mass' : '';
-        const holyWeekBadge = mass.isTriduum
-          ? `<div><span class="holy-week-badge">Holy Week</span></div>` : '';
-        const indicator = selections[mdt] === true ? '✓' : selections[mdt] === false ? '✕' : '';
-        const key = mdt.replace(/\s/g, '_');
+        const stateClass  = selections[mdt] === true ? 'available' : selections[mdt] === false ? 'unavailable' : '';
+        // massType is a free-text field — any non-blank value gets the special styling and badge.
+        // The badge label is the value itself, so "Triduum", "Christmas", "School Mass", etc. all work.
+        const massType    = mass.massType || '';
+        const typeClass   = massType ? 'special-mass' : '';
+        const typeBadge   = massType
+          ? `<div><span class="holy-week-badge">${massType}</span></div>` : '';
+        const indicator   = selections[mdt] === true ? '✓' : selections[mdt] === false ? '✕' : '';
+        const key         = mdt.replace(/\s/g, '_');
 
         html += `
-          <button class="mass-card ${stateClass} ${triduumClass}"
+          <button class="mass-card ${stateClass} ${typeClass}"
                   id="btn-${key}"
                   onclick="toggleMass('${mdt}')"
                   aria-label="Toggle availability: ${dowStr}, ${monthStr} ${dateNum} at ${timeStr}">
@@ -644,7 +647,7 @@
             <div class="mass-card-body">
               <div class="mass-dow">${dowStr}</div>
               <div class="mass-time-line">${timeStr}${mass.label ? ' · ' + mass.label : ''}</div>
-              ${holyWeekBadge}
+              ${typeBadge}
             </div>
             <div class="mass-indicator" id="ind-${key}" aria-hidden="true">${indicator}</div>
           </button>`;
@@ -672,9 +675,9 @@
     const btn  = document.getElementById(`btn-${key}`);
     const ind  = document.getElementById(`ind-${key}`);
     const mass = allMasses.find(m => m.massDateTime === mdt);
-    const isTri = mass && mass.isTriduum;
+    const hasType = mass && mass.massType;
 
-    btn.className = `mass-card${isTri ? ' triduum-mass' : ''}`;
+    btn.className = `mass-card${hasType ? ' special-mass' : ''}`;
     if (selections[mdt] === true)  { btn.classList.add('available');   ind.textContent = '✓'; }
     if (selections[mdt] === false) { btn.classList.add('unavailable'); ind.textContent = '✕'; }
     if (selections[mdt] === null)  { ind.textContent = ''; }

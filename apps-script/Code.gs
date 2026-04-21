@@ -25,12 +25,15 @@
 function getConfig() {
   const props = PropertiesService.getScriptProperties();
   return {
-    spreadsheetId: props.getProperty('SPREADSHEET_ID') || '',
+    spreadsheetId:   props.getProperty('SPREADSHEET_ID') || '',
     coordinatorEmail: props.getProperty('COORDINATOR_EMAIL') || '',
-    githubUsername: props.getProperty('GITHUB_USERNAME') || '',
-    anthropicKey: props.getProperty('ANTHROPIC_API_KEY') || '',   // optional
-    parishName: props.getProperty('PARISH_NAME') || 'Our Parish',
-    scriptUrl: props.getProperty('SCRIPT_URL') || '',             // deployed web app URL
+    githubUsername:  props.getProperty('GITHUB_USERNAME') || '',
+    anthropicKey:    props.getProperty('ANTHROPIC_API_KEY') || '',   // optional
+    parishName:      props.getProperty('PARISH_NAME') || 'Our Parish',
+    scriptUrl:       props.getProperty('SCRIPT_URL') || '',          // deployed web app URL
+    // Comma-separated names of deacons who lead the Prayers of the Faithful when present.
+    // Leave blank to omit that note from lector emails entirely.
+    deaconNames:     props.getProperty('DEACON_NAMES') || '',
   };
 }
 
@@ -430,18 +433,24 @@ function getLectorName(ss, email) {
  * Returns all Mass date/time objects for a given month/year,
  * derived from the MassTimes tab (recurring weekly schedule).
  *
- * MassTimes columns: DayOfWeek | Time | Label | IsTriduum
+ * MassTimes columns: DayOfWeek | Time | Label | MassType | LectorsNeeded
  * DayOfWeek values: Sunday, Monday, ..., Saturday
+ * MassType: free text — blank for a regular Mass, or any label like "Triduum",
+ *   "Christmas", "Ash Wednesday", "School Mass", etc. Displayed as a badge in
+ *   the availability calendar and lector emails. Not interpreted by the system
+ *   beyond being non-empty = visually flagged.
+ * LectorsNeeded: number of lectors required (default 2 if blank).
  *
- * @returns {Array<{massDateTime, label, isTriduum, dayOfWeek, time}>}
+ * @returns {Array<{massDateTime, label, massType, lectorsNeeded, dayOfWeek, time}>}
  */
 function getMassesForMonth(massTimesSheet, month, year) {
   const data = massTimesSheet.getDataRange().getValues();
-  const headers     = data[0];
-  const dowCol      = headers.indexOf('DayOfWeek');
-  const timeCol     = headers.indexOf('Time');
-  const labelCol    = headers.indexOf('Label');
-  const triduumCol  = headers.indexOf('IsTriduum');
+  const headers          = data[0];
+  const dowCol           = headers.indexOf('DayOfWeek');
+  const timeCol          = headers.indexOf('Time');
+  const labelCol         = headers.indexOf('Label');
+  const massTypeCol      = headers.indexOf('MassType');      // free-text flag; blank = regular
+  const lectorsNeededCol = headers.indexOf('LectorsNeeded'); // numeric; blank = 2
 
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -449,21 +458,26 @@ function getMassesForMonth(massTimesSheet, month, year) {
   const daysInMonth = new Date(year, month, 0).getDate();
 
   for (let day = 1; day <= daysInMonth; day++) {
-    const date   = new Date(year, month - 1, day);
+    const date    = new Date(year, month - 1, day);
     const dowName = dayNames[date.getDay()];
 
     data.slice(1).forEach(row => {
       if (row[dowCol] === dowName) {
-        // Combine date + time into a sortable ISO-like string
-        const timeStr  = row[timeCol] || '00:00';
-        const label    = row[labelCol] || '';
-        const isTriduum = row[triduumCol] === true || row[triduumCol] === 'TRUE' || row[triduumCol] === 'Yes';
+        const timeStr      = row[timeCol] || '00:00';
+        const label        = row[labelCol] || '';
+        // MassType: any non-blank string marks the Mass as special.
+        // The value itself is used as the badge label — no hardcoded list.
+        const massType     = massTypeCol >= 0 ? String(row[massTypeCol] || '').trim() : '';
+        // LectorsNeeded: how many lectors this Mass requires. Default 2.
+        const lectorsNeeded = lectorsNeededCol >= 0 && row[lectorsNeededCol]
+          ? Math.max(1, parseInt(row[lectorsNeededCol], 10) || 2)
+          : 2;
 
         // Format: "YYYY-MM-DD HH:MM" (24h, used as unique key)
-        const datePart = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const datePart    = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const massDateTime = `${datePart} ${timeStr}`;
 
-        masses.push({ massDateTime, label, isTriduum, dayOfWeek: dowName, time: timeStr, date: datePart });
+        masses.push({ massDateTime, label, massType, lectorsNeeded, dayOfWeek: dowName, time: timeStr, date: datePart });
       }
     });
   }
@@ -509,12 +523,15 @@ function clearAvailabilityForToken(sheet, token) {
 
 /**
  * Sets the Used column to TRUE for the given token.
+ * Looks up the column by header name so insertion order doesn't matter.
  */
 function markTokenUsed(tokensSheet, token) {
-  const data = tokensSheet.getDataRange().getValues();
+  const data    = tokensSheet.getDataRange().getValues();
+  const usedCol = data[0].indexOf('Used'); // locate by header, not hardcoded index
+  if (usedCol < 0) { Logger.log('Tokens sheet missing "Used" column.'); return; }
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === token) {
-      tokensSheet.getRange(i + 1, 5).setValue(true); // column 5 = Used
+      tokensSheet.getRange(i + 1, usedCol + 1).setValue(true);
       return;
     }
   }
@@ -624,27 +641,32 @@ function generateSchedule() {
 /**
  * Greedy scheduling algorithm.
  * Rules:
- *   - Each Mass needs 2 lectors (Lector1, Lector2)
+ *   - Each Mass needs `mass.lectorsNeeded` lectors (from the LectorsNeeded column; default 2)
  *   - No lector may serve two Masses on the same calendar day
  *   - Distribute load as evenly as possible across the month
- *   - If < 2 available lectors for a Mass → status: NEEDS ATTENTION
+ *   - If fewer lectors than needed are available → status: NEEDS ATTENTION
  *
- * @param {Array} masses — sorted list of mass objects
+ * Only Lector1 and Lector2 columns exist in the Schedule tab. Masses that
+ * need only 1 lector will leave Lector2 blank. If a parish ever needs 3+,
+ * extend the Schedule tab headers and the push() call below.
+ *
+ * @param {Array} masses — sorted list of mass objects (each has .lectorsNeeded)
  * @param {Object} availabilityMap — massDateTime → [lectorName, ...]
  * @returns {Array} assignments with lector1, lector2, status
  */
 function scheduleAlgorithm(masses, availabilityMap) {
   // Track how many Masses each lector has been assigned
   const assignmentCount = {};
-  // Track which dates each lector has been assigned (to prevent same-day double-booking)
+  // Track which dates each lector has been assigned (prevents same-day double-booking)
   const assignedDates = {};
 
   const assignments = [];
 
   masses.forEach(mass => {
-    const mdt       = mass.massDateTime;
-    const massDate  = mdt.split(' ')[0]; // "YYYY-MM-DD"
-    const available = [...(availabilityMap[mdt] || [])];
+    const mdt            = mass.massDateTime;
+    const massDate       = mdt.split(' ')[0]; // "YYYY-MM-DD"
+    const needed         = mass.lectorsNeeded || 2;
+    const available      = [...(availabilityMap[mdt] || [])];
 
     // Filter out lectors already assigned that day
     const eligible = available.filter(name => {
@@ -654,19 +676,20 @@ function scheduleAlgorithm(masses, availabilityMap) {
     // Sort eligible lectors by fewest assignments (load balancing)
     eligible.sort((a, b) => (assignmentCount[a] || 0) - (assignmentCount[b] || 0));
 
-    const lector1 = eligible[0] || null;
-    const lector2 = eligible[1] || null;
+    // Pick up to `needed` lectors
+    const picked  = eligible.slice(0, needed);
+    const lector1 = picked[0] || null;
+    const lector2 = picked[1] || null;  // null if Mass only needs 1, or if unavailable
 
-    // Update tracking
-    [lector1, lector2].forEach(name => {
-      if (!name) return;
+    // Update tracking for every assigned lector
+    picked.forEach(name => {
       assignmentCount[name] = (assignmentCount[name] || 0) + 1;
       if (!assignedDates[name]) assignedDates[name] = new Set();
       assignedDates[name].add(massDate);
     });
 
-    const assigned = [lector1, lector2].filter(Boolean).length;
-    const status   = assigned < 2 ? 'NEEDS ATTENTION' : 'PENDING APPROVAL';
+    const assigned = picked.filter(Boolean).length;
+    const status   = assigned < needed ? 'NEEDS ATTENTION' : 'PENDING APPROVAL';
 
     assignments.push({ ...mass, lector1, lector2, status });
   });
@@ -881,19 +904,25 @@ function getOrCreateSwapToken(ss, email, referenceMdt) {
  * Includes role descriptions, all assignments, scraped reading text, and swap link.
  */
 function buildLectorNotificationEmail(name, monthYear, assignments, swapUrl, parishName) {
+  // Build the optional deacon note from Script Properties (DEACON_NAMES).
+  // If the property is blank the note is omitted entirely.
+  const config       = getConfig();
+  const deaconNote   = config.deaconNames
+    ? `<br><em style="font-size: 13px;">(Prayers of the Faithful are led by ${config.deaconNames} when present — confirm with the celebrant)</em>`
+    : '';
+
   const roleDescriptions = `
     <div style="background: #f8f4ee; border-left: 4px solid #1a3a5c; padding: 16px; margin: 20px 0; border-radius: 0 6px 6px 0;">
       <p style="margin: 0 0 8px; font-weight: bold;">Role Reminders</p>
       <p style="margin: 0 0 6px;"><strong>Lector 1:</strong> First Reading + Announcements before Mass</p>
-      <p style="margin: 0;"><strong>Lector 2:</strong> Second Reading + Prayers of the Faithful<br>
-        <em style="font-size: 13px;">(Prayers of the Faithful are led by Deacon Kevin or Deacon Matt when present — confirm with the celebrant)</em>
-      </p>
+      <p style="margin: 0;"><strong>Lector 2:</strong> Second Reading + Prayers of the Faithful${deaconNote}</p>
     </div>`;
 
   const massBlocks = assignments.map(a => {
     const dateDisplay = formatMassDateTime(a.mdt);
-    const triduumBadge = a.label && a.label.toLowerCase().includes('triduum')
-      ? `<span style="background:#8b0000;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px;">Triduum</span>`
+    // Badge uses the MassType field value directly — no hardcoded string matching.
+    const massTypeBadge = a.massType
+      ? `<span style="background:#8b0000;color:white;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px;">${escapeHtml(a.massType)}</span>`
       : '';
 
     const readingsSection = a.readingText
@@ -916,7 +945,7 @@ function buildLectorNotificationEmail(name, monthYear, assignments, swapUrl, par
 
     return `
       <div style="border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:20px;">
-        <h3 style="margin:0 0 4px;color:#1a3a5c;">${dateDisplay}${triduumBadge}</h3>
+        <h3 style="margin:0 0 4px;color:#1a3a5c;">${dateDisplay}${massTypeBadge}</h3>
         <p style="margin:0 0 4px;font-size:14px;color:#555;">${a.label || ''}</p>
         <p style="margin:0;"><strong>Your role:</strong> ${a.role}</p>
         ${readingsSection}
@@ -1476,7 +1505,7 @@ function initializeSheetTabs() {
   const ss = getSpreadsheet();
   const tabDefs = [
     { name: 'Lectors',      headers: ['Name', 'Email', 'Active'] },
-    { name: 'MassTimes',    headers: ['DayOfWeek', 'Time', 'Label', 'IsTriduum'] },
+    { name: 'MassTimes',    headers: ['DayOfWeek', 'Time', 'Label', 'MassType', 'LectorsNeeded'] },
     { name: 'Availability', headers: ['Token', 'LectorName', 'MassDateTime', 'Available', 'SubmittedAt'] },
     { name: 'Schedule',     headers: ['MassDateTime', 'Label', 'Lector1', 'Lector2', 'ReadingsURL', 'PrepURL', 'Status'] },
     { name: 'Tokens',       headers: ['Token', 'LectorEmail', 'Month', 'Year', 'Used'] },

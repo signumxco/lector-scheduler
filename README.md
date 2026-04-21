@@ -129,20 +129,22 @@ In the **Lectors** tab of your Google Sheet:
 
 In the **MassTimes** tab, list every regularly scheduled Mass. Each row represents one recurring weekly time slot.
 
-| DayOfWeek | Time  | Label              | IsTriduum |
-|-----------|-------|--------------------|-----------|
-| Saturday  | 17:00 | Saturday Vigil     | FALSE     |
-| Sunday    | 08:00 | Sunday 8:00 AM     | FALSE     |
-| Sunday    | 10:00 | Sunday 10:00 AM    | FALSE     |
-| Sunday    | 12:00 | Sunday Noon        | FALSE     |
-| Thursday  | 19:00 | Holy Thursday      | TRUE      |
-| Friday    | 15:00 | Good Friday        | TRUE      |
-| Saturday  | 20:30 | Easter Vigil       | TRUE      |
+| DayOfWeek | Time  | Label              | MassType     | LectorsNeeded |
+|-----------|-------|--------------------|--------------|---------------|
+| Saturday  | 17:00 | Saturday Vigil     |              | 2             |
+| Sunday    | 08:00 | Sunday 8:00 AM     |              | 2             |
+| Sunday    | 10:00 | Sunday 10:00 AM    |              | 2             |
+| Sunday    | 12:00 | Sunday Noon        |              | 2             |
+| Wednesday | 09:00 | School Mass        | School Mass  | 1             |
+| Thursday  | 19:00 | Holy Thursday      | Triduum      | 2             |
+| Friday    | 15:00 | Good Friday        | Triduum      | 2             |
+| Saturday  | 20:30 | Easter Vigil       | Triduum      | 2             |
 
 - **DayOfWeek**: Full day name — `Sunday`, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`
 - **Time**: 24-hour format — `09:00`, `17:30`, etc.
 - **Label**: Descriptive name shown to lectors
-- **IsTriduum**: `TRUE` for Holy Thursday, Good Friday, and Easter Vigil — these are visually flagged for lectors
+- **MassType**: Optional free-text label for any Mass that needs to stand out — `Triduum`, `Christmas`, `Ash Wednesday`, `School Mass`, etc. Leave blank for a regular Mass. Whatever you type here appears as a badge on the availability calendar and in lector emails. The system doesn't interpret the value — it just displays it.
+- **LectorsNeeded**: How many lectors this Mass requires. Leave blank or enter `2` for the default. Enter `1` for a weekday or school Mass that only needs one reader.
 
 ---
 

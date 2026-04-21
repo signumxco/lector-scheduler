@@ -18,17 +18,18 @@ const confirmURL = (params = {}) => {
 
 /** Mock mass data returned by the Apps Script endpoint */
 const MOCK_MASSES = [
-  { massDateTime: '2025-05-03 09:00', label: 'Sunday 9:00 AM', isTriduum: false, dayOfWeek: 'Saturday', time: '09:00', date: '2025-05-03', available: null },
-  { massDateTime: '2025-05-03 11:00', label: 'Sunday 11:00 AM', isTriduum: false, dayOfWeek: 'Sunday', time: '11:00', date: '2025-05-03', available: null },
-  { massDateTime: '2025-05-10 09:00', label: 'Sunday 9:00 AM', isTriduum: false, dayOfWeek: 'Sunday', time: '09:00', date: '2025-05-10', available: null },
-  { massDateTime: '2025-05-17 09:00', label: 'Sunday 9:00 AM', isTriduum: false, dayOfWeek: 'Sunday', time: '09:00', date: '2025-05-17', available: null },
-  { massDateTime: '2025-05-17 11:00', label: 'Sunday 11:00 AM', isTriduum: false, dayOfWeek: 'Sunday', time: '11:00', date: '2025-05-17', available: null },
+  { massDateTime: '2025-05-03 09:00', label: 'Sunday 9:00 AM',  massType: '', lectorsNeeded: 2, dayOfWeek: 'Saturday', time: '09:00', date: '2025-05-03', available: null },
+  { massDateTime: '2025-05-03 11:00', label: 'Sunday 11:00 AM', massType: '', lectorsNeeded: 2, dayOfWeek: 'Sunday',   time: '11:00', date: '2025-05-03', available: null },
+  { massDateTime: '2025-05-10 09:00', label: 'Sunday 9:00 AM',  massType: '', lectorsNeeded: 2, dayOfWeek: 'Sunday',   time: '09:00', date: '2025-05-10', available: null },
+  { massDateTime: '2025-05-17 09:00', label: 'Sunday 9:00 AM',  massType: '', lectorsNeeded: 2, dayOfWeek: 'Sunday',   time: '09:00', date: '2025-05-17', available: null },
+  { massDateTime: '2025-05-17 11:00', label: 'Sunday 11:00 AM', massType: '', lectorsNeeded: 2, dayOfWeek: 'Sunday',   time: '11:00', date: '2025-05-17', available: null },
 ];
 
+// Special-mass mock — uses free-text MassType values, not a boolean
 const MOCK_TRIDUUM_MASSES = [
-  { massDateTime: '2025-04-17 19:00', label: 'Holy Thursday', isTriduum: true, dayOfWeek: 'Thursday', time: '19:00', date: '2025-04-17', available: null },
-  { massDateTime: '2025-04-18 15:00', label: 'Good Friday',    isTriduum: true, dayOfWeek: 'Friday',   time: '15:00', date: '2025-04-18', available: null },
-  { massDateTime: '2025-04-19 20:30', label: 'Easter Vigil',   isTriduum: true, dayOfWeek: 'Saturday', time: '20:30', date: '2025-04-19', available: null },
+  { massDateTime: '2025-04-17 19:00', label: 'Holy Thursday', massType: 'Triduum',  lectorsNeeded: 2, dayOfWeek: 'Thursday', time: '19:00', date: '2025-04-17', available: null },
+  { massDateTime: '2025-04-18 15:00', label: 'Good Friday',   massType: 'Triduum',  lectorsNeeded: 2, dayOfWeek: 'Friday',   time: '15:00', date: '2025-04-18', available: null },
+  { massDateTime: '2025-04-19 20:30', label: 'Easter Vigil',  massType: 'Triduum',  lectorsNeeded: 2, dayOfWeek: 'Saturday', time: '20:30', date: '2025-04-19', available: null },
 ];
 
 const MOCK_ASSIGNMENTS = [
@@ -281,7 +282,7 @@ test.describe('availability.html', () => {
     await expect(page.locator('#btn-submit')).toBeEnabled();
   });
 
-  test('triduum masses show Holy Week badge and violet styling', async ({ page }) => {
+  test('special-type masses show MassType badge and violet styling', async ({ page }) => {
     await patchAndIntercept(page, () => ({
       lectorName: 'Jane Smith', lectorEmail: 'jane@parish.org',
       month: 4, year: 2025, monthName: 'April', masses: MOCK_TRIDUUM_MASSES,
@@ -293,15 +294,15 @@ test.describe('availability.html', () => {
     const cards = page.locator('.mass-card');
     await expect(cards).toHaveCount(3);
 
-    // All three should have the triduum-mass class
+    // All three should have the special-mass class (non-blank massType)
     for (let i = 0; i < 3; i++) {
-      await expect(cards.nth(i)).toHaveClass(/triduum-mass/);
+      await expect(cards.nth(i)).toHaveClass(/special-mass/);
     }
 
-    // Holy Week badges should appear
+    // Badge displays the MassType value verbatim ("Triduum")
     const badges = page.locator('.holy-week-badge');
     await expect(badges).toHaveCount(3);
-    await expect(badges.first()).toContainText('Holy Week');
+    await expect(badges.first()).toContainText('Triduum');
   });
 
   test('pre-populated availability from existing submission', async ({ page }) => {
