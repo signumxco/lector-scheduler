@@ -127,24 +127,32 @@ In the **Lectors** tab of your Google Sheet:
 
 ### Step 5 — Set Up Mass Times
 
-In the **MassTimes** tab, list every regularly scheduled Mass. Each row represents one recurring weekly time slot.
+In the **MassTimes** tab, each row is either a **recurring weekly Mass** or a **one-time custom Mass**.
 
-| DayOfWeek | Time  | Label              | MassType     | LectorsNeeded |
-|-----------|-------|--------------------|--------------|---------------|
-| Saturday  | 17:00 | Saturday Vigil     |              | 2             |
-| Sunday    | 08:00 | Sunday 8:00 AM     |              | 2             |
-| Sunday    | 10:00 | Sunday 10:00 AM    |              | 2             |
-| Sunday    | 12:00 | Sunday Noon        |              | 2             |
-| Wednesday | 09:00 | School Mass        | School Mass  | 1             |
-| Thursday  | 19:00 | Holy Thursday      | Triduum      | 2             |
-| Friday    | 15:00 | Good Friday        | Triduum      | 2             |
-| Saturday  | 20:30 | Easter Vigil       | Triduum      | 2             |
+**Recurring Masses** (leave `SpecificDate` blank) repeat on the matching weekday every month:
 
-- **DayOfWeek**: Full day name — `Sunday`, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`
+| DayOfWeek | Time  | Label           | MassType    | LectorsNeeded | SpecificDate |
+|-----------|-------|-----------------|-------------|---------------|--------------|
+| Saturday  | 17:00 | Saturday Vigil  |             | 2             |              |
+| Sunday    | 08:00 | Sunday 8:00 AM  |             | 2             |              |
+| Sunday    | 10:00 | Sunday 10:00 AM |             | 2             |              |
+| Sunday    | 12:00 | Sunday Noon     |             | 2             |              |
+| Wednesday | 09:00 | School Mass     | School Mass | 1             |              |
+
+**One-time custom Masses** — when a special Mass falls on an unusual day or time, add a row with a `SpecificDate`:
+
+| DayOfWeek | Time  | Label              | MassType | LectorsNeeded | SpecificDate |
+|-----------|-------|--------------------|----------|---------------|--------------|
+|           | 19:00 | (your Mass name)   | (badge)  | 2             | 2026-04-02   |
+
+> Add these rows whenever you need them, name them whatever you like, and delete or leave them after — they only appear on the availability calendar for the month that date falls in. DayOfWeek is ignored when SpecificDate is set.
+
+- **DayOfWeek**: Full day name — `Sunday` through `Saturday`. Used for recurring rows; ignored when `SpecificDate` is set.
 - **Time**: 24-hour format — `09:00`, `17:30`, etc.
-- **Label**: Descriptive name shown to lectors
-- **MassType**: Optional free-text label for any Mass that needs to stand out — `Triduum`, `Christmas`, `Ash Wednesday`, `School Mass`, etc. Leave blank for a regular Mass. Whatever you type here appears as a badge on the availability calendar and in lector emails. The system doesn't interpret the value — it just displays it.
-- **LectorsNeeded**: How many lectors this Mass requires. Leave blank or enter `2` for the default. Enter `1` for a weekday or school Mass that only needs one reader.
+- **Label**: Whatever name you want lectors to see
+- **MassType**: Optional badge text — anything you type here appears as a label on the availability calendar and in lector emails. Leave blank for a regular Mass.
+- **LectorsNeeded**: How many lectors this Mass requires. Leave blank or enter `2` for the default. Enter `1` if only one reader is needed.
+- **SpecificDate**: Leave blank for recurring Masses. Enter `YYYY-MM-DD` for a one-time Mass — it only appears on the lector availability calendar for that exact month.
 
 ---
 

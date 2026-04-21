@@ -76,13 +76,21 @@ function onOpen() {
  * Entry point for all GET requests from the web app.
  * Routes by the `action` query parameter.
  *
+ * Supports JSONP: if a `callback` parameter is present, the response is wrapped
+ * as `callback(json)` and served as JavaScript. This is required because the
+ * Apps Script 302 redirect does not carry CORS headers, so direct fetch() calls
+ * from GitHub Pages are blocked by the browser. Script-tag JSONP bypasses this.
+ *
  * Supported actions:
- *   getAvailabilityData — returns lector name + mass schedule for token
- *   getSwapData         — returns lector's assigned masses for swap form
+ *   getAvailabilityData  — returns lector name + mass schedule for token
+ *   getSwapData          — returns lector's assigned masses for swap form
+ *   submitAvailability   — writes availability (encoded as JSON in `selections` param)
+ *   requestSwap          — sends swap notification emails
  */
 function doGet(e) {
-  const params = e.parameter || {};
-  const action = params.action || '';
+  const params   = e.parameter || {};
+  const action   = params.action || '';
+  const callback = params.callback || '';
 
   try {
     let result;
@@ -93,13 +101,25 @@ function doGet(e) {
       case 'getSwapData':
         result = getSwapData(params.token, params.mass);
         break;
+      case 'submitAvailability':
+        result = submitAvailability({
+          token:      params.token,
+          selections: JSON.parse(params.selections || '[]'),
+        });
+        break;
+      case 'requestSwap':
+        result = requestSwap({
+          token:        params.token,
+          massDateTime: params.massDateTime,
+        });
+        break;
       default:
         result = { error: 'Unknown action.' };
     }
-    return jsonResponse(result);
+    return jsonpOrJsonResponse(result, callback);
   } catch (err) {
     Logger.log('doGet error: ' + err.message);
-    return jsonResponse({ error: err.message });
+    return jsonpOrJsonResponse({ error: err.message }, callback);
   }
 }
 
@@ -141,12 +161,24 @@ function doPost(e) {
 }
 
 /**
- * Wraps a JS object in a JSON ContentService response with CORS headers.
+ * Returns a JSONP response if `callback` is provided, plain JSON otherwise.
+ * JSONP is used by the web pages to bypass the Apps Script 302 CORS redirect issue.
  */
-function jsonResponse(data) {
+function jsonpOrJsonResponse(data, callback) {
+  const json = JSON.stringify(data);
+  if (callback) {
+    return ContentService
+      .createTextOutput(`${callback}(${json})`)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
   return ContentService
-    .createTextOutput(JSON.stringify(data))
+    .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Keep the old name as an alias so doPost still works unchanged.
+function jsonResponse(data) {
+  return jsonpOrJsonResponse(data, '');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -429,17 +461,21 @@ function getLectorName(ss, email) {
 
 /**
  * Returns all Mass date/time objects for a given month/year,
- * derived from the MassTimes tab (recurring weekly schedule).
+ * derived from the MassTimes tab.
  *
- * MassTimes columns: DayOfWeek | Time | Label | MassType | LectorsNeeded
- * DayOfWeek values: Sunday, Monday, ..., Saturday
+ * MassTimes columns: DayOfWeek | Time | Label | MassType | LectorsNeeded | SpecificDate
+ *
+ * Two modes per row:
+ *   - Recurring (SpecificDate blank): appears every matching DayOfWeek in the month.
+ *   - One-time (SpecificDate = "YYYY-MM-DD"): appears only on that exact date.
+ *     Use this for annual events like Triduum, Christmas Eve, Ash Wednesday, etc.
+ *
  * MassType: free text — blank for a regular Mass, or any label like "Triduum",
  *   "Christmas", "Ash Wednesday", "School Mass", etc. Displayed as a badge in
- *   the availability calendar and lector emails. Not interpreted by the system
- *   beyond being non-empty = visually flagged.
+ *   the availability calendar and lector emails.
  * LectorsNeeded: number of lectors required (default 2 if blank).
  *
- * @returns {Array<{massDateTime, label, massType, lectorsNeeded, dayOfWeek, time}>}
+ * @returns {Array<{massDateTime, label, massType, lectorsNeeded, dayOfWeek, time, date}>}
  */
 function getMassesForMonth(massTimesSheet, month, year) {
   const data = massTimesSheet.getDataRange().getValues();
@@ -447,38 +483,63 @@ function getMassesForMonth(massTimesSheet, month, year) {
   const dowCol           = headers.indexOf('DayOfWeek');
   const timeCol          = headers.indexOf('Time');
   const labelCol         = headers.indexOf('Label');
-  const massTypeCol      = headers.indexOf('MassType');      // free-text flag; blank = regular
-  const lectorsNeededCol = headers.indexOf('LectorsNeeded'); // numeric; blank = 2
+  const massTypeCol      = headers.indexOf('MassType');
+  const lectorsNeededCol = headers.indexOf('LectorsNeeded');
+  const specificDateCol  = headers.indexOf('SpecificDate'); // YYYY-MM-DD; absent = recurring
 
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-
   const masses = [];
-  const daysInMonth = new Date(year, month, 0).getDate();
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date    = new Date(year, month - 1, day);
-    const dowName = dayNames[date.getDay()];
+  data.slice(1).forEach(row => {
+    // ── Parse time ──────────────────────────────────────────────────────────
+    // Google Sheets returns time-only cells as Date objects anchored to Dec 30 1899.
+    // Extract HH:MM directly to avoid .toString() pollution in the massDateTime key.
+    const rawTime = row[timeCol];
+    let timeStr;
+    if (rawTime instanceof Date) {
+      timeStr = rawTime.getHours().toString().padStart(2, '0') + ':' +
+                rawTime.getMinutes().toString().padStart(2, '0');
+    } else {
+      timeStr = String(rawTime || '00:00').trim();
+    }
 
-    data.slice(1).forEach(row => {
-      if (row[dowCol] === dowName) {
-        const timeStr      = row[timeCol] || '00:00';
-        const label        = row[labelCol] || '';
-        // MassType: any non-blank string marks the Mass as special.
-        // The value itself is used as the badge label — no hardcoded list.
-        const massType     = massTypeCol >= 0 ? String(row[massTypeCol] || '').trim() : '';
-        // LectorsNeeded: how many lectors this Mass requires. Default 2.
-        const lectorsNeeded = lectorsNeededCol >= 0 && row[lectorsNeededCol]
-          ? Math.max(1, parseInt(row[lectorsNeededCol], 10) || 2)
-          : 2;
+    const label = row[labelCol] || '';
 
-        // Format: "YYYY-MM-DD HH:MM" (24h, used as unique key)
-        const datePart    = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        const massDateTime = `${datePart} ${timeStr}`;
+    // MassType: only use if it is a non-empty string.
+    // Ignore booleans — a checked checkbox in that column is not a mass type label.
+    const rawMassType = massTypeCol >= 0 ? row[massTypeCol] : '';
+    const massType = typeof rawMassType === 'string' ? rawMassType.trim() : '';
 
-        masses.push({ massDateTime, label, massType, lectorsNeeded, dayOfWeek: dowName, time: timeStr, date: datePart });
+    const lectorsNeeded = lectorsNeededCol >= 0 && row[lectorsNeededCol]
+      ? Math.max(1, parseInt(row[lectorsNeededCol], 10) || 2)
+      : 2;
+
+    // ── One-time vs. recurring ───────────────────────────────────────────────
+    const rawSpecificDate = specificDateCol >= 0 ? String(row[specificDateCol] || '').trim() : '';
+
+    if (rawSpecificDate && /^\d{4}-\d{2}-\d{2}$/.test(rawSpecificDate)) {
+      // One-time mass: only include if this date falls in the target month/year.
+      const parts = rawSpecificDate.split('-').map(Number);
+      if (parts[0] === year && parts[1] === month) {
+        const day = parts[2];
+        const date = new Date(year, month - 1, day);
+        const dowName = dayNames[date.getDay()];
+        masses.push({ massDateTime: `${rawSpecificDate} ${timeStr}`, label, massType, lectorsNeeded, dayOfWeek: dowName, time: timeStr, date: rawSpecificDate });
       }
-    });
-  }
+    } else {
+      // Recurring mass: appears every matching day-of-week in the month.
+      const dowName = row[dowCol];
+      if (!dowName) return;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month - 1, day);
+        if (dayNames[date.getDay()] === dowName) {
+          const datePart = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          masses.push({ massDateTime: `${datePart} ${timeStr}`, label, massType, lectorsNeeded, dayOfWeek: dowName, time: timeStr, date: datePart });
+        }
+      }
+    }
+  });
 
   // Sort chronologically
   masses.sort((a, b) => a.massDateTime.localeCompare(b.massDateTime));
@@ -601,8 +662,13 @@ function generateSchedule() {
   Logger.log('Scraping readings and prep URLs...');
   assignments.forEach(a => {
     const dateObj = parseMassDate(a.massDateTime);
-    a.readingsUrl = scrapeUSCCBUrl(dateObj);
-    a.prepUrl     = scrapeLectorPrepUrl(dateObj);
+    // Saturday evening Masses (vigil) use Sunday's liturgical readings.
+    // Advance the date by 1 day so the USCCB URL points to the Sunday page.
+    const readingsDate = (dateObj && dateObj.getDay() === 6)
+      ? new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1)
+      : dateObj;
+    a.readingsUrl = scrapeUSCCBUrl(readingsDate);
+    a.prepUrl     = scrapeLectorPrepUrl(readingsDate);
     Utilities.sleep(500); // be polite to external servers
   });
 
@@ -622,6 +688,9 @@ function generateSchedule() {
       '',  // DeaconMass — coordinator fills in TRUE for Masses where a deacon will be present
     ]);
   });
+
+  // ── Apply Status dropdown validation to all data rows ───────────────────
+  applyStatusDropdown(scheduleSheet);
 
   // ── 6. Email coordinator ─────────────────────────────────────────────────
   const needsAttention = assignments.filter(a => a.status === 'NEEDS ATTENTION').length;
@@ -694,6 +763,28 @@ function scheduleAlgorithm(masses, availabilityMap) {
   });
 
   return assignments;
+}
+
+/**
+ * Applies a dropdown validation to the Status column of the Schedule sheet.
+ * Options: NEEDS ATTENTION | APPROVED | CANCELLED
+ * Runs on all data rows (skips header). Safe to call after any schedule write.
+ */
+function applyStatusDropdown(scheduleSheet) {
+  const data = scheduleSheet.getDataRange().getValues();
+  const headers = data[0];
+  const statusCol = headers.indexOf('Status');
+  if (statusCol < 0 || data.length < 2) return;
+
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['NEEDS ATTENTION', 'APPROVED', 'CANCELLED'], true)
+    .setAllowInvalid(false)
+    .build();
+
+  const numDataRows = data.length - 1;
+  scheduleSheet
+    .getRange(2, statusCol + 1, numDataRows, 1)
+    .setDataValidation(rule);
 }
 
 /**
@@ -1704,7 +1795,7 @@ function initializeSheetTabs() {
   const ss = getSpreadsheet();
   const tabDefs = [
     { name: 'Lectors',      headers: ['Name', 'Email', 'Active'] },
-    { name: 'MassTimes',    headers: ['DayOfWeek', 'Time', 'Label', 'MassType', 'LectorsNeeded'] },
+    { name: 'MassTimes',    headers: ['DayOfWeek', 'Time', 'Label', 'MassType', 'LectorsNeeded', 'SpecificDate'] },
     { name: 'Availability', headers: ['Token', 'LectorName', 'MassDateTime', 'Available', 'SubmittedAt'] },
     { name: 'Schedule',     headers: ['MassDateTime', 'Label', 'Lector1', 'Lector2', 'ReadingsURL', 'PrepURL', 'Status', 'DeaconMass'] },
     { name: 'Tokens',       headers: ['Token', 'LectorEmail', 'Month', 'Year', 'Used'] },
