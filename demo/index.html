@@ -29,33 +29,34 @@
       font-family: 'Inter', sans-serif;
       background: var(--navy);
       color: var(--white);
-      overflow: hidden;
+      margin: 0;
+      padding: 0;
     }
 
     /* ── Slide container ── */
     #deck {
       width: 100%;
       height: 100vh;
-      position: relative;
-      overflow: hidden;
     }
 
     .slide {
-      position: absolute;
-      inset: 0;
-      display: flex;
+      display: none;
+      width: 100%;
+      height: 100vh;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       padding: 60px 80px;
-      opacity: 0;
-      transition: opacity 0.35s ease;
-      pointer-events: none;
       text-align: center;
+      box-sizing: border-box;
     }
     .slide.active {
-      opacity: 1;
-      pointer-events: all;
+      display: flex;
+      animation: fadein 0.3s ease;
+    }
+    @keyframes fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     /* ── Slide themes ── */
