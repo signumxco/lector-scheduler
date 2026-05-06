@@ -49,19 +49,13 @@
       align-items: center;
       padding: 60px 80px;
       opacity: 0;
-      transform: translateX(60px);
-      transition: opacity 0.45s ease, transform 0.45s ease;
+      transition: opacity 0.35s ease;
       pointer-events: none;
       text-align: center;
     }
     .slide.active {
       opacity: 1;
-      transform: translateX(0);
       pointer-events: all;
-    }
-    .slide.exit-left {
-      opacity: 0;
-      transform: translateX(-60px);
     }
 
     /* ── Slide themes ── */
@@ -1223,10 +1217,6 @@
 
   function update() {
     const dots = dotsEl.querySelectorAll('.dot');
-    slides.forEach((s, i) => {
-      s.classList.remove('active', 'exit-left');
-    });
-    slides[current].classList.add('active');
     dots.forEach((d, i) => d.classList.toggle('active', i === current));
     counter.textContent = `${current + 1} / ${total}`;
     progress.style.width = `${((current + 1) / total) * 100}%`;
@@ -1235,35 +1225,16 @@
     btnNext.disabled = current === total - 1;
   }
 
-  function goTo(n, direction) {
+  function goTo(n) {
     if (n === current) return;
-    const leaving = slides[current];
-    const isForward = n > current;
-    leaving.classList.add(isForward ? 'exit-left' : '');
-    leaving.classList.remove('active');
-    // small delay so transition fires
-    requestAnimationFrame(() => {
-      leaving.style.transform = isForward ? 'translateX(-60px)' : 'translateX(60px)';
-      leaving.style.opacity = '0';
-      setTimeout(() => {
-        leaving.style.transform = '';
-        leaving.style.opacity = '';
-        leaving.classList.remove('exit-left');
-      }, 450);
-    });
+    slides[current].classList.remove('active');
     current = n;
-    slides[current].style.transform = isForward ? 'translateX(60px)' : 'translateX(-60px)';
-    slides[current].style.opacity = '0';
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        slides[current].classList.add('active');
-      });
-    });
+    slides[current].classList.add('active');
     update();
   }
 
-  function next() { if (current < total - 1) goTo(current + 1, 1); }
-  function prev() { if (current > 0) goTo(current - 1, -1); }
+  function next() { if (current < total - 1) goTo(current + 1); }
+  function prev() { if (current > 0) goTo(current - 1); }
 
   btnNext.addEventListener('click', next);
   btnPrev.addEventListener('click', prev);
