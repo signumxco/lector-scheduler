@@ -1,0 +1,28 @@
+project_id = "ministry-scheduler"
+
+[functions.admin-dashboard]
+verify_jwt = false
+
+[functions.admin-save-roster]
+verify_jwt = false
+
+[functions.admin-save-assignment]
+verify_jwt = false
+
+[functions.send-availability-requests]
+verify_jwt = false
+
+[functions.submit-availability]
+verify_jwt = false
+
+[functions.generate-schedule]
+verify_jwt = false
+
+[functions.publish-schedule]
+verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false
+
+[functions.request-coverage]
+verify_jwt = false
