@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/ministry-logo.png" alt="The Ministry Scheduler logo" width="260" />
+  <img src="./public/the-ministry-scheduler-social.png" alt="The Ministry Scheduler social banner" width="1100" />
 </p>
 
 # The Ministry Scheduler
