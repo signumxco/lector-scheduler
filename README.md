@@ -6,7 +6,7 @@
 
 The Ministry Scheduler is a free, parish-owned ministry scheduling system you can use in your own parish.
 
-If you want help getting it deployed, want guidance tailoring it to your workflow, or want a more custom-made solution like this one, schedule time with SIGNUM at [signumz.com](https://signumz.com).
+If you want help getting it deployed, want guidance tailoring it to your workflow, or want a more custom-made solution like this one, schedule time with SIGNUMZ at [signumz.com](https://signumz.com).
 
 It starts with **Lectors** and **Eucharistic Ministers**, and the data model is ready for altar servers, choir, hospitality, or other ministries later.
 
