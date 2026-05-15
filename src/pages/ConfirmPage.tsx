@@ -11,7 +11,7 @@ export function ConfirmPage() {
       <header className="volunteer-hero">
         <MinistryMark />
         <h1>{title}</h1>
-        <p>Parish Ministry Scheduler</p>
+        <p>The Ministry Scheduler</p>
       </header>
       <main className="volunteer-state success">
         <Check size={44} />

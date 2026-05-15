@@ -51,46 +51,26 @@ button {
 .mark {
   width: 50px;
   height: 50px;
-  border: 1px solid rgba(255, 112, 51, 0.42);
-  border-radius: 50%;
+  padding: 3px;
+  border-radius: 14px;
+  overflow: hidden;
   display: grid;
   place-items: center;
-  color: var(--gold);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 10px 24px rgba(5, 67, 176, 0.12);
 }
 
 .mark.compact {
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
 }
 
-.mark-cross {
-  width: 18px;
-  height: 24px;
-  position: relative;
-  display: inline-block;
-}
-
-.mark-cross::before,
-.mark-cross::after {
-  content: '';
-  position: absolute;
-  background: currentColor;
-  border-radius: 999px;
-}
-
-.mark-cross::before {
-  width: 4px;
-  height: 24px;
-  left: 7px;
-  top: 0;
-}
-
-.mark-cross::after {
-  width: 18px;
-  height: 4px;
-  left: 0;
-  top: 8px;
+.mark-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 10px;
 }
 
 .primary-action,
@@ -849,7 +829,7 @@ button {
   gap: 8px;
 }
 
-.view-tabs {
+.summary-strip {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
@@ -860,7 +840,7 @@ button {
   box-shadow: 0 2px 8px rgba(5, 67, 176, 0.05);
 }
 
-.stat-card,
+.summary-card,
 .schedule-card,
 .setting-card,
 .empty-state,
@@ -873,42 +853,14 @@ button {
   box-shadow: 0 2px 8px rgba(5, 67, 176, 0.05);
 }
 
-.stat-card {
-  appearance: none;
+.summary-card {
   padding: 12px;
   display: grid;
   gap: 6px;
   text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
 }
 
-.stat-card:hover,
-.stat-card[data-active='true'] {
-  border-color: rgba(5, 67, 176, 0.5);
-  box-shadow: 0 8px 24px rgba(5, 67, 176, 0.1);
-}
-
-.stat-card[data-active='true'] {
-  background: var(--navy);
-  color: white;
-}
-
-.stat-card[data-active='true'] span,
-.stat-card.warn[data-active='true'] span,
-.stat-card.ok[data-active='true'] span {
-  color: #ffffff;
-}
-
-.stat-card:focus-visible {
-  outline: 3px solid rgba(81, 154, 250, 0.45);
-  outline-offset: 2px;
-}
-
-.stat-card span,
+.summary-card span,
 .setting-card span {
   color: var(--muted);
   font-size: 0.78rem;
@@ -917,25 +869,18 @@ button {
   letter-spacing: 0.08em;
 }
 
-.stat-card strong {
+.summary-card strong {
   font-size: 1.55rem;
 }
 
-.stat-card.warn {
+.summary-card.warn {
   border-color: #e9b1a9;
   background: #fff4f2;
 }
 
-.stat-card.ok {
+.summary-card.ok {
   border-color: #b9dec9;
   background: #f0faf4;
-}
-
-.stat-card.warn[data-active='true'],
-.stat-card.ok[data-active='true'] {
-  background: var(--navy);
-  border-color: rgba(5, 67, 176, 0.5);
-  color: white;
 }
 
 .panel-stack {
@@ -1241,8 +1186,8 @@ button {
 .card-controls label,
 .inline-form label,
 .login-card label,
-.volunteer-edit-row label,
-.ministry-checks legend {
+.volunteer-edit-row > label:not(.active-check),
+.ministry-select-field {
   display: grid;
   gap: 7px;
   color: var(--muted);
@@ -1285,7 +1230,7 @@ input {
 }
 
 .data-table {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .table-row {
@@ -1322,20 +1267,11 @@ input {
 .volunteer-edit-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr minmax(180px, auto) auto auto;
+  grid-template-columns: minmax(150px, 1fr) minmax(190px, 1.2fr) minmax(140px, 1fr) minmax(190px, 0.85fr) auto auto;
   gap: 10px;
   align-items: end;
 }
 
-.ministry-checks {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 7px;
-}
-
-.ministry-checks label,
 .active-check {
   min-height: 42px;
   border: 1px solid var(--line);
@@ -1351,11 +1287,108 @@ input {
   letter-spacing: 0;
 }
 
-.ministry-checks input,
 .active-check input {
   width: 16px;
   min-height: 16px;
   accent-color: var(--navy);
+}
+
+.active-check[data-disabled='true'] {
+  color: var(--muted);
+  background: #f7f9fc;
+}
+
+.ministry-menu {
+  position: relative;
+}
+
+.ministry-menu-trigger {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  color: var(--ink);
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ministry-menu-trigger span {
+  color: var(--ink);
+}
+
+.ministry-menu-trigger:hover,
+.ministry-menu-trigger:focus-visible,
+.ministry-menu[data-open='true'] .ministry-menu-trigger {
+  border-color: rgba(5, 67, 176, 0.45);
+  box-shadow: 0 0 0 3px rgba(81, 154, 250, 0.14);
+}
+
+.ministry-menu-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max(100%, 210px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: 0 12px 26px rgba(5, 67, 176, 0.14);
+  padding: 6px;
+  margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ministry-menu-option {
+  min-height: 36px;
+  border-radius: 6px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ministry-menu-option:hover {
+  background: #f3f7ff;
+}
+
+.ministry-menu-option input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: var(--navy);
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .row-actions {
@@ -1462,6 +1495,20 @@ input {
   font-weight: 700;
 }
 
+.config-list {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #f2b8b2;
+  border-radius: var(--radius);
+  background: #fff6f5;
+  color: var(--red);
+}
+
+.config-list strong {
+  color: var(--ink);
+}
+
 .loading-panel {
   margin: 40px;
   color: var(--muted);
@@ -1482,7 +1529,7 @@ input {
 
   .admin-sidebar,
   .admin-header,
-  .view-tabs,
+  .summary-strip,
   .panel-stack,
   .card-controls,
   .toast,
@@ -1637,7 +1684,7 @@ input {
     justify-content: flex-start;
   }
 
-  .view-tabs,
+  .summary-strip,
   .settings-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1668,7 +1715,7 @@ input {
     padding: 18px 14px;
   }
 
-  .view-tabs,
+  .summary-strip,
   .settings-grid,
   .assignment-grid {
     grid-template-columns: 1fr;

@@ -1,6 +1,14 @@
-# Parish Ministry Scheduler
+<p align="center">
+  <img src="./public/ministry-logo.png" alt="The Ministry Scheduler logo" width="260" />
+</p>
 
-A parish-owned ministry scheduler with a simple admin console, no volunteer logins, and a Supabase + Resend backend. The current app starts with **Lectors** and **Eucharistic Ministers**, with the data model ready for altar servers, choir, hospitality, or other ministries later.
+# The Ministry Scheduler
+
+The Ministry Scheduler is a free, parish-owned ministry scheduling system you can use in your own parish.
+
+If you want help getting it deployed, want guidance tailoring it to your workflow, or want a more custom-made solution like this one, schedule time with SIGNUM at [signumz.com](https://signumz.com).
+
+It starts with **Lectors** and **Eucharistic Ministers**, and the data model is ready for altar servers, choir, hospitality, or other ministries later.
 
 The app is intentionally free-tier friendly:
 
@@ -12,6 +20,8 @@ The app is intentionally free-tier friendly:
 - Admins can switch between all ministries, Lectors, and EMHC from the sidebar.
 - The calendar tab gives a simple month-level view of who is doing what at each Mass.
 
+> Free to clone, free to adapt, and free to run for your parish. If you'd like help or a custom version, the door is open at [signumz.com](https://signumz.com).
+
 ## Local Development
 
 ```bash
@@ -20,6 +30,15 @@ npm run dev
 ```
 
 The frontend runs in demo mode when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are blank, so the admin console and volunteer pages can be reviewed before Supabase is configured.
+
+For production-style local testing, set both Supabase frontend env vars in `.env.local`. If only one is set, the app shows a configuration error instead of silently falling back to demo data. Demo previews are hidden in configured mode unless you explicitly set `VITE_ENABLE_DEMO_MODE=true`.
+
+Before testing real auth in a browser that has been used for demos, clear stale local sessions:
+
+```js
+localStorage.removeItem('emhc-scheduler-session')
+localStorage.removeItem('ministry-scheduler-session')
+```
 
 Useful local URLs:
 
@@ -127,9 +146,12 @@ CRON_SECRET=
 5. Create one admin Auth user and matching `admin_users` / `admin_roles` rows.
 6. Seed Lectors and EMHC ministries, next-month weekend Mass times, and exactly one active volunteer in the ministry being tested using your real inbox.
 7. Start the app locally with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` set in `.env.local`.
-8. Sign in as the staging admin, switch to the test ministry, and choose `More actions` → `Request availability`.
-9. Confirm that the modal shows one active volunteer, then send.
-10. Verify the real inbox email, click `Submit Availability`, submit the form, and confirm `email_events`, `availability_requests.submitted_at`, and `availability_responses` in Supabase.
+8. Make sure `.env.local` includes `VITE_ENABLE_DEMO_MODE=false`, then restart `npm run dev`.
+9. Clear `emhc-scheduler-session` and `ministry-scheduler-session` from browser localStorage.
+10. Open `/admin`; it should show `Coordinator sign in`, not the dashboard and not a demo console button.
+11. Sign in as the staging admin, switch to the test ministry, and choose `More actions` → `Request availability`.
+12. Confirm that the modal shows one active volunteer, then send.
+13. Verify the real inbox email, click `Submit Availability`, submit the form, and confirm `email_events`, `availability_requests.submitted_at`, and `availability_responses` in Supabase.
 
 Keep all real parish volunteers out of staging or inactive during this test.
 

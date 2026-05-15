@@ -54,8 +54,6 @@ import { buildReminderEmail, makeDemoReminderInput } from '../lib/reminderEmail'
 import type { AdminDashboardData, MassStatus, Ministry, ScheduledMass, Volunteer } from '../lib/types';
 
 type Tab = 'calendar' | 'schedule' | 'volunteers' | 'masses' | 'settings' | 'email';
-type ScheduleView = 'all' | 'needs-review' | 'reviewed';
-type VolunteerView = 'all' | 'active';
 type ConfirmAction = 'availability' | 'generate' | 'publish' | 'reminders';
 
 export function AdminConsole() {
@@ -63,8 +61,6 @@ export function AdminConsole() {
   const [dashboard, setDashboard] = useState<AdminDashboardData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('calendar');
   const [activeMinistryId, setActiveMinistryId] = useState<MinistryFilter>('all');
-  const [scheduleView, setScheduleView] = useState<ScheduleView>('needs-review');
-  const [volunteerView, setVolunteerView] = useState<VolunteerView>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [isActionsOpen, setIsActionsOpen] = useState(false);
@@ -102,6 +98,11 @@ export function AdminConsole() {
   );
 
   useEffect(() => {
+    if (apiConfig.isMisconfigured) {
+      setIsLoading(false);
+      return;
+    }
+
     if (apiConfig.isConfigured && !session) {
       setIsLoading(false);
       return;
@@ -222,7 +223,6 @@ export function AdminConsole() {
 
   function usePrimaryAction() {
     if (primaryAction.kind === 'review') {
-      setScheduleView('needs-review');
       setActiveTab('schedule');
       return;
     }
@@ -233,8 +233,12 @@ export function AdminConsole() {
     setIsActionsOpen((isOpen) => !isOpen);
   }
 
+  if (apiConfig.isMisconfigured) {
+    return <ConfigurationError />;
+  }
+
   if (apiConfig.isConfigured && !session) {
-    return <AdminLogin onSession={setSession} />;
+    return <AdminLogin onSession={setSession} showDemoAccess={apiConfig.canUseDemo} />;
   }
 
   if (isLoading || !dashboard) {
@@ -254,7 +258,7 @@ export function AdminConsole() {
         <div className="brand-lockup">
           <MinistryMark compact />
           <div>
-            <strong>Ministry Scheduler</strong>
+            <strong>The Ministry Scheduler</strong>
             <span>{dashboard.parish.name}</span>
           </div>
         </div>
@@ -309,7 +313,7 @@ export function AdminConsole() {
           <div>
             <MonthHeader activeMonth={dashboard.activeMonth} />
             <h1>{activeMinistry ? activeMinistry.name : 'Parish Ministries'}</h1>
-            <p>See the whole calendar, then switch into a ministry when you need to review details.</p>
+            <p>Use the sidebar to move between the calendar, schedule review, volunteers, and settings.</p>
           </div>
           <AdminActionBar
             activeMinistryId={activeMinistryId}
@@ -328,7 +332,7 @@ export function AdminConsole() {
             }}
             onToggleMenu={() => setIsActionsOpen((isOpen) => !isOpen)}
             primaryAction={primaryAction}
-            showVolunteerPreview={!apiConfig.isConfigured}
+            showVolunteerPreview={apiConfig.canUseDemo}
           />
         </header>
 
@@ -342,59 +346,30 @@ export function AdminConsole() {
           </div>
         ) : null}
 
-        <section className="view-tabs" aria-label="Primary view filters">
-          <Stat
-            active={activeTab === 'calendar'}
+        <section className="summary-strip" aria-label="Monthly summary">
+          <SummaryCard
             label="Calendar"
-            onClick={() => {
-              setActiveTab('calendar');
-            }}
             value={stats.masses}
           />
-          <Stat
-            active={activeTab === 'schedule' && scheduleView === 'needs-review'}
+          <SummaryCard
             label="Needs review"
-            onClick={() => {
-              setScheduleView('needs-review');
-              setActiveTab('schedule');
-            }}
             tone={stats.needsAttention > 0 ? 'warn' : 'ok'}
             value={stats.needsAttention}
           />
-          <Stat
-            active={activeTab === 'schedule' && scheduleView === 'reviewed'}
+          <SummaryCard
             label="Reviewed"
-            onClick={() => {
-              setScheduleView('reviewed');
-              setActiveTab('schedule');
-            }}
             value={stats.approved}
           />
-          <Stat
-            active={activeTab === 'schedule' && scheduleView === 'all'}
-            label="All Masses"
-            onClick={() => {
-              setScheduleView('all');
-              setActiveTab('schedule');
-            }}
+          <SummaryCard
+            label="Masses"
             value={stats.masses}
           />
-          <Stat
-            active={activeTab === 'volunteers' && volunteerView === 'active'}
+          <SummaryCard
             label="Active volunteers"
-            onClick={() => {
-              setVolunteerView('active');
-              setActiveTab('volunteers');
-            }}
             value={stats.volunteers}
           />
-          <Stat
-            active={activeTab === 'volunteers' && volunteerView === 'all'}
+          <SummaryCard
             label="All volunteers"
-            onClick={() => {
-              setVolunteerView('all');
-              setActiveTab('volunteers');
-            }}
             value={volunteerCount}
           />
         </section>
@@ -405,7 +380,6 @@ export function AdminConsole() {
             activeMinistryId={activeMinistryId}
             onDrillDown={(ministryId) => {
               setActiveMinistryId(ministryId);
-              setScheduleView('needs-review');
               setActiveTab('schedule');
             }}
           />
@@ -416,7 +390,6 @@ export function AdminConsole() {
             activeMinistryId={activeMinistryId}
             addVolunteerToMass={addVolunteerToMass}
             removeAssignment={removeAssignment}
-            scheduleView={scheduleView}
             setMassStatus={setMassStatus}
           />
         ) : null}
@@ -427,7 +400,6 @@ export function AdminConsole() {
             setDashboard={setDashboard}
             session={session}
             setToast={showToast}
-            volunteerView={volunteerView}
           />
         ) : null}
         {activeTab === 'masses' ? <MassTimesTab dashboard={dashboard} activeMinistryId={activeMinistryId} /> : null}
@@ -998,7 +970,26 @@ function formatPrintMassDate(date: string, time: string): string {
   return `${day} at ${timeLabel}`;
 }
 
-function AdminLogin({ onSession }: { onSession: (session: Session | null) => void }) {
+function ConfigurationError() {
+  return (
+    <div className="login-shell">
+      <section className="login-card" role="alert">
+        <MinistryMark />
+        <h1>Supabase setup is incomplete</h1>
+        <p>
+          This app has only part of the Supabase frontend configuration. Add the missing env vars, then restart the dev
+          server before testing real auth.
+        </p>
+        <div className="config-list">
+          <strong>Missing</strong>
+          <span>{apiConfig.missingEnvVars.join(', ')}</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminLogin({ onSession, showDemoAccess }: { onSession: (session: Session | null) => void; showDemoAccess: boolean }) {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
 
@@ -1023,9 +1014,11 @@ function AdminLogin({ onSession }: { onSession: (session: Session | null) => voi
           Send sign-in link
         </button>
         {message ? <p className="form-note">{message}</p> : null}
-        <button className="ghost-action full" onClick={() => onSession({ accessToken: 'demo' })} type="button">
-          View demo console
-        </button>
+        {showDemoAccess ? (
+          <button className="ghost-action full" onClick={() => onSession({ accessToken: 'demo' })} type="button">
+            View demo console
+          </button>
+        ) : null}
       </form>
     </div>
   );
@@ -1109,56 +1102,34 @@ function ScheduleTab({
   activeMinistryId,
   addVolunteerToMass,
   removeAssignment,
-  scheduleView,
   setMassStatus,
 }: {
   dashboard: AdminDashboardData;
   activeMinistryId: MinistryFilter;
   addVolunteerToMass: (mass: ScheduledMass, volunteerId: string) => void;
   removeAssignment: (mass: ScheduledMass, assignmentId: string) => void;
-  scheduleView: ScheduleView;
   setMassStatus: (mass: ScheduledMass, status: MassStatus) => void;
 }) {
   const activeVolunteers = filterVolunteers(dashboard.volunteers, activeMinistryId).filter((volunteer) => volunteer.active);
   const scopedSchedule = filterSchedule(dashboard.schedule, activeMinistryId);
-  const visibleSchedule = scopedSchedule.filter((mass) => {
-    if (scheduleView === 'needs-review') return needsReview(mass);
-    if (scheduleView === 'reviewed') return isReviewed(mass);
-    return true;
-  });
+  const visibleSchedule = scopedSchedule.filter(needsReview);
   const orderedSchedule = visibleSchedule.sort((a, b) => {
-    const dateOrder = `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`);
-    if (scheduleView === 'needs-review' || scheduleView === 'reviewed') return dateOrder;
-    const aPriority = a.openings > 0 || a.status === 'needs_attention' ? 0 : 1;
-    const bPriority = b.openings > 0 || b.status === 'needs_attention' ? 0 : 1;
-    return aPriority - bPriority || dateOrder;
+    return `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`);
   });
-  const scheduleCopy =
-    scheduleView === 'needs-review'
-      ? 'Masses with openings or attention flags stay here until a coordinator approves them.'
-      : scheduleView === 'reviewed'
-        ? 'Approved and published Masses are ready for publishing, reminders, and printing.'
-        : 'All Masses for the selected ministry scope, sorted with review items first.';
 
   return (
     <section className="panel-stack">
       <div className="section-toolbar">
         <div>
           <h2>Schedule Review</h2>
-          <p>{scheduleCopy}</p>
+          <p>Masses needing review stay here until a coordinator approves them.</p>
         </div>
       </div>
 
       {orderedSchedule.length === 0 ? (
         <EmptyState
-          title={scheduleView === 'reviewed' ? 'Nothing approved yet' : scheduleView === 'needs-review' ? 'Nothing needs review' : 'No Masses found'}
-          body={
-            scheduleView === 'reviewed'
-              ? 'Approved Masses will appear here as coordinators mark them ready.'
-              : scheduleView === 'needs-review'
-                ? 'Everything in this ministry scope is reviewed for now.'
-                : 'Try another ministry scope or add Mass times.'
-          }
+          title="Everything is reviewed"
+          body="There are no Masses needing coordinator attention in this ministry scope."
         />
       ) : null}
 
@@ -1237,20 +1208,18 @@ function VolunteersTab({
   setDashboard,
   session,
   setToast,
-  volunteerView,
 }: {
   dashboard: AdminDashboardData;
   activeMinistryId: MinistryFilter;
   setDashboard: (updater: (current: AdminDashboardData | null) => AdminDashboardData | null) => void;
   session: Session | null;
   setToast: (message: string) => void;
-  volunteerView: VolunteerView;
 }) {
   const [draft, setDraft] = useState({ name: '', email: '', notes: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Volunteer | null>(null);
-  const scopedVolunteers = filterVolunteers(dashboard.volunteers, activeMinistryId);
-  const visibleVolunteers = volunteerView === 'active' ? scopedVolunteers.filter((volunteer) => volunteer.active) : scopedVolunteers;
+  const [openMinistryMenuId, setOpenMinistryMenuId] = useState<string | null>(null);
+  const visibleVolunteers = filterVolunteers(dashboard.volunteers, activeMinistryId);
 
   async function addVolunteer(event: FormEvent) {
     event.preventDefault();
@@ -1276,12 +1245,14 @@ function VolunteersTab({
 
   function startEditing(volunteer: Volunteer) {
     setEditingId(volunteer.id);
+    setOpenMinistryMenuId(null);
     setEditDraft({ ...volunteer, ministryIds: [...volunteer.ministryIds] });
   }
 
   function cancelEditing() {
     setEditingId(null);
     setEditDraft(null);
+    setOpenMinistryMenuId(null);
   }
 
   async function submitVolunteerEdit(event: FormEvent) {
@@ -1292,12 +1263,13 @@ function VolunteersTab({
       name: editDraft.name.trim(),
       email: editDraft.email.trim(),
       notes: editDraft.notes?.trim(),
+      active: editDraft.ministryIds.length > 0 ? editDraft.active : false,
     });
     cancelEditing();
   }
 
   async function saveVolunteerChanges(volunteer: Volunteer) {
-    if (!volunteer.name || !volunteer.email || volunteer.ministryIds.length === 0) return;
+    if (!volunteer.name || !volunteer.email) return;
     const saved = await saveVolunteer(volunteer, session);
     setDashboard((current) =>
       current
@@ -1316,8 +1288,21 @@ function VolunteersTab({
       const ministryIds = current.ministryIds.includes(ministryId)
         ? current.ministryIds.filter((id) => id !== ministryId)
         : [...current.ministryIds, ministryId];
-      return { ...current, ministryIds };
+      return {
+        ...current,
+        ministryIds,
+        active: ministryIds.length > 0 ? current.active || current.ministryIds.length === 0 : false,
+      };
     });
+  }
+
+  function formatSelectedMinistries(ministryIds: string[]) {
+    return (
+      dashboard.ministries
+        .filter((ministry) => ministryIds.includes(ministry.id))
+        .map((ministry) => ministry.shortName)
+        .join(', ') || 'No ministries'
+    );
   }
 
   return (
@@ -1365,29 +1350,52 @@ function VolunteersTab({
                   Notes
                   <input value={editDraft.notes ?? ''} onChange={(event) => setEditDraft({ ...editDraft, notes: event.target.value })} />
                 </label>
-                <fieldset className="ministry-checks">
-                  <legend>Ministries</legend>
-                  {dashboard.ministries.map((ministry) => (
-                    <label key={ministry.id}>
-                      <input
-                        checked={editDraft.ministryIds.includes(ministry.id)}
-                        onChange={() => toggleEditMinistry(ministry.id)}
-                        type="checkbox"
-                      />
-                      <span className="ministry-dot" style={{ background: ministry.accentColor }} />
-                      {ministry.shortName}
-                    </label>
-                  ))}
-                </fieldset>
-                <label className="active-check">
-                  <input checked={editDraft.active} onChange={(event) => setEditDraft({ ...editDraft, active: event.target.checked })} type="checkbox" />
+                <div className="ministry-select-field">
+                  <span className="field-label">Ministries</span>
+                  <div className="ministry-menu" data-open={openMinistryMenuId === volunteer.id ? 'true' : 'false'}>
+                    <button
+                      aria-expanded={openMinistryMenuId === volunteer.id}
+                      aria-haspopup="true"
+                      className="ministry-menu-trigger"
+                      onClick={() => setOpenMinistryMenuId((current) => (current === volunteer.id ? null : volunteer.id))}
+                      type="button"
+                    >
+                      <span>{formatSelectedMinistries(editDraft.ministryIds)}</span>
+                      <ChevronDown size={16} />
+                    </button>
+                    {openMinistryMenuId === volunteer.id ? (
+                      <fieldset className="ministry-menu-popover">
+                        <legend className="sr-only">Choose ministries</legend>
+                        {dashboard.ministries.map((ministry) => (
+                          <label className="ministry-menu-option" key={ministry.id}>
+                            <input
+                              checked={editDraft.ministryIds.includes(ministry.id)}
+                              onChange={() => toggleEditMinistry(ministry.id)}
+                              type="checkbox"
+                            />
+                            <span className="ministry-dot" style={{ background: ministry.accentColor }} />
+                            {ministry.shortName}
+                          </label>
+                        ))}
+                      </fieldset>
+                    ) : null}
+                  </div>
+                  {editDraft.ministryIds.length === 0 ? <span className="field-hint">No ministries pauses this volunteer.</span> : null}
+                </div>
+                <label className="active-check" data-disabled={editDraft.ministryIds.length === 0 ? 'true' : 'false'}>
+                  <input
+                    checked={editDraft.ministryIds.length > 0 && editDraft.active}
+                    disabled={editDraft.ministryIds.length === 0}
+                    onChange={(event) => setEditDraft({ ...editDraft, active: event.target.checked })}
+                    type="checkbox"
+                  />
                   Active
                 </label>
                 <div className="row-actions">
                   <button className="secondary-action" onClick={cancelEditing} type="button">
                     Cancel
                   </button>
-                  <button className="primary-action" disabled={editDraft.ministryIds.length === 0} type="submit">
+                  <button className="primary-action" type="submit">
                     Save
                   </button>
                 </div>
@@ -1515,31 +1523,20 @@ function NavButton({ active, icon, label, onClick }: { active: boolean; icon: Re
   );
 }
 
-function Stat({
-  active = false,
+function SummaryCard({
   label,
-  onClick,
   value,
   tone,
 }: {
-  active?: boolean;
   label: string;
-  onClick: () => void;
   value: number;
   tone?: 'ok' | 'warn';
 }) {
   return (
-    <button
-      aria-label={`${label}: ${value}`}
-      aria-pressed={active}
-      className={`stat-card ${tone ?? ''}`}
-      data-active={active ? 'true' : 'false'}
-      onClick={onClick}
-      type="button"
-    >
+    <div aria-label={`${label}: ${value}`} className={`summary-card ${tone ?? ''}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-    </button>
+    </div>
   );
 }
 
